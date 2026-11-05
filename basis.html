@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#0b1220"/>
+<title>贴水年化 · IC / IM</title>
+<link rel="manifest" href="manifest.json"/>
+<style>
+:root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);padding:16px;padding-bottom:64px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 8px}
+.nav{display:flex;gap:8px;margin:0 0 14px}
+.nav a{flex:1;text-align:center;text-decoration:none;color:var(--text);border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px;font-size:15px;font-weight:600}
+.nav a.on{background:var(--accent);color:#041018;border:0}
+.seg{display:flex;gap:8px;margin:0 0 14px}
+.seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px}
+.seg button.on{background:var(--accent);color:#041018;border:0;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.k{color:var(--muted);font-size:12px}
+.v{font-size:clamp(22px,7vw,34px);font-weight:750;margin-top:6px;letter-spacing:.01em;overflow-wrap:anywhere;word-break:break-word;line-height:1.15}
+.win{color:var(--win)}.loss{color:var(--loss)}.warn{color:var(--warn)}
+.metrics{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px}
+@media (min-width:420px){.metrics{grid-template-columns:1fr 1fr 1fr}}
+.metrics .card{margin:0}
+.row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.row:last-child{border:0}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
+.pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px}
+.ok{background:#123528;color:var(--win)}.bad{background:#3a1d24;color:var(--loss)}.wait{background:#3a2a12;color:var(--warn)}
+.trig{display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.trig:last-child{border:0}
+.trig-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.trig .note{margin-top:0;overflow-wrap:anywhere}
+.dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+.dot.ok{background:var(--win)}.dot.bad{background:var(--loss)}.dot.wait{background:var(--warn)}
+button.refresh{display:block;width:100%;border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:14px;padding:16px 20px;font-size:18px;min-height:56px;margin:12px 0 16px}
+.status{font-size:12px;color:var(--muted);margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.grid2 .card{margin:0}
+.tiny{font-size:11px;color:var(--muted)}
+.chg.up{color:var(--loss)}.chg.down{color:var(--win)}
+table.chain,table.basis{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+table.chain th,table.chain td,table.basis th,table.basis td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.chain th:first-child,table.chain td:first-child,table.basis th:first-child,table.basis td:first-child{text-align:left}
+table.chain th,table.basis th{color:var(--muted);font-weight:600}
+table.chain tr.atm td{background:#1c2b44;font-weight:700}
+table.chain tr.used td{color:var(--accent)}
+table.basis tr.group td{background:var(--head);color:var(--accent);font-weight:700;text-align:left}
+table.basis tr.front .code{background:var(--blue);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700}
+table.basis .pos{color:var(--loss)}
+table.basis .neg{color:var(--win)}
+table.basis .strong{font-weight:700;color:#fff}
+.scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
+h2{font-size:15px;margin:0 0 8px;font-weight:700}
+
+body{background:#f5f7fb;color:#111}
+h1,.sub{color:#111}
+.sub{color:#667}
+.nav a{background:#fff;color:#111;border-color:#dde3ee}
+.nav a.on{background:var(--blue);color:#fff}
+.status{color:#667}
+button.refresh{background:var(--blue);color:#fff}
+.card{background:#fff;border-color:#dde3ee;color:#111}
+table.basis{background:#fff;border-radius:12px;overflow:hidden;font-size:13px}
+table.basis th{background:#f0f4fa;color:#556;position:sticky;top:0}
+table.basis td{border-bottom:1px solid #e8edf5;color:#222}
+table.basis tr.group td{background:#e8f1ff;color:#1d4ed8}
+table.basis .strong{color:#111}
+.wrap{background:#fff;border:1px solid #dde3ee;border-radius:14px;padding:8px;overflow-x:auto}
+.note{color:#667}
+</style>
+</head>
+<body>
+<h1>贴水年化</h1>
+<div class="sub">中证500 IC · 中证1000 IM（按你截图同款字段）</div>
+<nav class="nav">
+  <a href="index.html">策略盘口</a>
+  <a class="on" href="basis.html">贴水年化</a>
+</nav>
+<div class="status" id="status">加载中…</div>
+<button class="refresh" id="btn" type="button">刷新</button>
+<div class="note" style="margin-bottom:10px">基差 = 指数 − 期货；年化 = 基差/指数 × 365/剩余天数。正基差为贴水。</div>
+<div class="wrap"><table class="basis" id="tbl">
+<thead><tr>
+  <th>合约</th><th>价格</th><th>涨跌幅</th><th>涨跌额</th><th>天数</th><th>基差</th><th>年化</th>
+</tr></thead>
+<tbody id="tb"></tbody>
+</table></div>
+<div class="note" id="foot"></div>
+<script>
+// 中金所股指期货到期：当月第三个周五
+const EXP = {'2611':'2026-11-20','2612':'2026-12-18','2703':'2027-03-19','2706':'2027-06-18'};
+const GROUPS = [
+  {key:'IC', label:'500 IC', idx:'s_sh000905', months:['2611','2612','2703','2706']},
+  {key:'IM', label:'1000 IM', idx:'s_sh000852', months:['2611','2612','2703','2706']},
+];
+function parseIdx(s){if(!s) return null; const p=s.split(','); return {name:p[0], last:+p[1]||0, chg:+p[2]||0, pct:+p[3]||0};}
+function parseFut(s){if(!s) return null; const p=s.split(',');
+  const last=+p[3]||0; const prev=+p[14]||0; // 昨结
+  return {last, open:+p[0]||0, high:+p[1]||0, low:+p[2]||0, prev, time:((p[36]||'')+' '+(p[37]||'')).trim()};
+}
+function daysLeft(code){
+  const exp=EXP[code]; if(!exp) return 0;
+  const t=new Date(); const sh=new Date(t.toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+  const e=new Date(exp+'T15:00:00+08:00');
+  return Math.max(0, Math.ceil((e-sh)/86400000));
+}
+function fmt(n,d=2){return (n==null||isNaN(n))?'—':(+n).toFixed(d);}
+function pctCls(x){return x>0?'pos':(x<0?'neg':'');}
+function render(data){
+  let html=''; let asOf='';
+  for(const g of GROUPS){
+    const idx=data.idx[g.idx];
+    if(!idx) continue;
+    asOf=data.time||asOf;
+    html+=`<tr class="group"><td colspan="7">${g.label}　${fmt(idx.last,2)}　<span class="${pctCls(idx.pct)}">${idx.pct>=0?'+':''}${fmt(idx.pct,2)}%</span>　<span class="${pctCls(idx.chg)}">${idx.chg>=0?'+':''}${fmt(idx.chg,2)}</span></td></tr>`;
+    g.months.forEach((m,i)=>{
+      const f=data.fut['nf_'+g.key+m]; if(!f) return;
+      const d=daysLeft(m);
+      const basis=idx.last-f.last;
+      const ann=d>0?(basis/idx.last)*(365/d)*100:0;
+      // chg vs prev settle when available, else vs open
+      const base=f.prev||f.open||f.last;
+      const chg=f.last-base;
+      const chgp=base?chg/base*100:0;
+      html+=`<tr class="${i===0?'front':''}"><td><span class="code">${g.key+m}</span></td>
+        <td>${fmt(f.last,1)}</td>
+        <td class="${pctCls(chgp)}">${chgp>=0?'+':''}${fmt(chgp,2)}%</td>
+        <td class="${pctCls(chg)}">${chg>=0?'+':''}${fmt(chg,2)}</td>
+        <td>${d}</td>
+        <td class="strong">${fmt(basis,2)}</td>
+        <td class="strong">${fmt(ann,2)}%</td></tr>`;
+    });
+  }
+  document.getElementById('tb').innerHTML=html;
+  document.getElementById('status').textContent=(data.live?'实时 · ':'缓存 · ')+(asOf||'');
+  document.getElementById('foot').textContent='到期按第三周五：2611=2026-11-20，2612=2026-12-18，2703=2027-03-19，2706=2027-06-18。';
+}
+function pull(){
+  document.getElementById('status').textContent='刷新中…';
+  const list=[];
+  for(const g of GROUPS){ list.push(g.idx); for(const m of g.months) list.push('nf_'+g.key+m); }
+  const s=document.createElement('script');
+  s.src='https://hq.sinajs.cn/list='+list.join(',')+'&_='+Date.now(); s.charset='gbk';
+  s.onload=()=>{
+    try{
+      const idx={}, fut={}, time='';
+      for(const g of GROUPS){
+        idx[g.idx]=parseIdx(window['hq_str_'+g.idx]||'');
+        for(const m of g.months){
+          const key='nf_'+g.key+m;
+          const f=parseFut(window['hq_str_'+key]||'');
+          if(f){ fut[key]=f; if(f.time) time=f.time; }
+        }
+      }
+      // improve chg: sina nf_ often has 昨结算 around field — probe from known good
+      // If chg looks wrong (vs screenshot style), use last vs open as daytime proxy already in parseFut
+      render({idx,fut,time,live:true});
+    }catch(e){ document.getElementById('status').textContent='实时失败'; console.error(e); }
+    s.remove();
+  };
+  s.onerror=()=>{ document.getElementById('status').textContent='实时被拦'; s.remove(); };
+  document.body.appendChild(s);
+}
+document.getElementById('btn').onclick=()=>pull();
+pull(); setInterval(pull, 300000);
+</script>
+</body>
+</html>

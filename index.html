@@ -4,16 +4,18 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="theme-color" content="#0b1220"/>
-<title>MO Iron Eagle</title>
+<title>MO 铁鹰</title>
 <link rel="manifest" href="manifest.json"/>
 <style>
-:root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff}
+:root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:var(--bg);color:var(--text);padding:16px;padding-bottom:56px}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);padding:16px;padding-bottom:64px}
 h1{font-size:22px;margin:0 0 4px}
 .sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 8px}
+.nav{display:flex;gap:8px;margin:0 0 14px}
+.nav a{flex:1;text-align:center;text-decoration:none;color:var(--text);border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px;font-size:15px;font-weight:600}
+.nav a.on{background:var(--accent);color:#041018;border:0}
 .seg{display:flex;gap:8px;margin:0 0 14px}
 .seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px}
 .seg button.on{background:var(--accent);color:#041018;border:0;font-weight:700}
@@ -35,76 +37,73 @@ h1{font-size:22px;margin:0 0 4px}
 .trig .note{margin-top:0;overflow-wrap:anywhere}
 .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:var(--win)}.dot.bad{background:var(--loss)}.dot.wait{background:var(--warn)}
-.topbar{margin-bottom:8px}
 button.refresh{display:block;width:100%;border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:14px;padding:16px 20px;font-size:18px;min-height:56px;margin:12px 0 16px}
 .status{font-size:12px;color:var(--muted);margin-bottom:8px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .grid2 .card{margin:0}
 .tiny{font-size:11px;color:var(--muted)}
 .chg.up{color:var(--loss)}.chg.down{color:var(--win)}
-table.chain{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
-table.chain th,table.chain td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-table.chain th:first-child,table.chain td:first-child{text-align:left}
-table.chain th{color:var(--muted);font-weight:600}
+table.chain,table.basis{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+table.chain th,table.chain td,table.basis th,table.basis td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.chain th:first-child,table.chain td:first-child,table.basis th:first-child,table.basis td:first-child{text-align:left}
+table.chain th,table.basis th{color:var(--muted);font-weight:600}
 table.chain tr.atm td{background:#1c2b44;font-weight:700}
 table.chain tr.used td{color:var(--accent)}
+table.basis tr.group td{background:var(--head);color:var(--accent);font-weight:700;text-align:left}
+table.basis tr.front .code{background:var(--blue);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700}
+table.basis .pos{color:var(--loss)}
+table.basis .neg{color:var(--win)}
+table.basis .strong{font-weight:700;color:#fff}
 .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
 h2{font-size:15px;margin:0 0 8px;font-weight:700}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <h1>MO Iron Eagle</h1>
-  <div class="sub">中证1000短波动 · 手机复盘</div>
-</div>
-<div class="status" id="status">Loading…</div>
-<button class="refresh" id="btn" type="button">刷新 Refresh</button>
-<div class="sub">非投资建议。优先新浪实时；拉不到用缓存盘口。</div>
+<h1>MO 铁鹰</h1>
+<div class="sub">中证1000 短波动 · 手机复盘</div>
+<nav class="nav">
+  <a class="on" href="index.html">策略盘口</a>
+  <a href="basis.html">贴水年化</a>
+</nav>
+<div class="status" id="status">加载中…</div>
+<button class="refresh" id="btn" type="button">刷新</button>
+<div class="sub">非投资建议。优先拉新浪实时；失败则用缓存。</div>
 
 <div class="grid2" id="mkt"></div>
 <div class="card" id="fut"></div>
 <div class="card" id="chainCard"></div>
 
 <div class="seg">
-  <button type="button" id="b3" class="on">3-leg</button>
-  <button type="button" id="b4">4-leg</button>
+  <button type="button" id="b3" class="on">三腿</button>
+  <button type="button" id="b4">四腿</button>
 </div>
 <div class="metrics" id="trigMetrics"></div>
 <div class="card" id="trigCard"></div>
 <div id="pnl"></div>
 <div class="card" id="legs"></div>
-<div class="card note">历史回测回撤参考：3腿 IV&gt;25% ≈ <strong>20.5%</strong>（约¥35万）；4腿封顶 ≈ <strong>¥432,793 (41.6%)</strong>。</div>
+<div class="card note">历史回测回撤参考：三腿 IV&gt;25% ≈ <strong>20.5%</strong>（约¥35万）；四腿封顶 ≈ <strong>¥432,793（41.6%）</strong>。</div>
 
 <script>
 const FALLBACK = {
   asOf: '2026-11-05 10:02 Asia/Shanghai',
   idx: {name:'中证1000', last:6680.53, chg:168.73, pct:2.59},
   im: {last:6619.8, bid:0, ask:0, open:0, high:0, low:0, settle:0, time:''},
-  atm: 6600, iv: 0.35,
-  chain: {}
+  atm: 6600, iv: 0.35, chain: {}
 };
 let mode='3', snap=JSON.parse(JSON.stringify(FALLBACK)), live=false;
 const fee=16.5, mult=100;
 const STRIKE_OFFS=[-500,-400,-300,-200,-100,0,100,200,300,400,500,600,700,800];
-
 function yen(n){const neg=n<0; const s=Math.round(Math.abs(n)).toLocaleString('en-US'); return (neg?'-':'')+'¥'+s;}
 function fmt(n,d=1){if(n==null||isNaN(n)||n===0) return '—'; return (+n).toFixed(d);}
 function setMode(m){mode=m;document.getElementById('b3').classList.toggle('on',m==='3');document.getElementById('b4').classList.toggle('on',m==='4');render();}
 document.getElementById('b3').onclick=()=>setMode('3');
 document.getElementById('b4').onclick=()=>setMode('4');
 document.getElementById('btn').onclick=()=>pull();
-
 function parseOpt(s){if(!s) return null; const p=s.split(','); return {bvol:+p[0]||0,bid:+p[1]||0,last:+p[2]||0,ask:+p[3]||0,svol:+p[4]||0};}
 function parseFut(s){if(!s) return null; const p=s.split(',');
-  return {open:+p[0]||0,high:+p[1]||0,low:+p[2]||0,last:+p[3]||0,settle:+p[14]||0,bid:+p[16]||0,ask:+p[26]||0,time:((p[36]||'')+' '+(p[37]||'')).trim(),name:p[p.length-1]||'IM'};}
+  return {open:+p[0]||0,high:+p[1]||0,low:+p[2]||0,last:+p[3]||0,settle:+p[14]||0,bid:+p[16]||0,ask:+p[26]||0,time:((p[36]||'')+' '+(p[37]||'')).trim()};}
 function parseIdx(s){if(!s) return null; const p=s.split(','); return {name:p[0], last:+p[1]||0, chg:+p[2]||0, pct:+p[3]||0};}
-
-function getOpt(cp,k){
-  const key=(cp==='P'?'P':'C')+k;
-  return (snap.chain&&snap.chain[key]) || null;
-}
-function mid(o){if(!o) return 0; if(o.bid&&o.ask) return (o.bid+o.ask)/2; return o.last||o.bid||o.ask||0;}
-
+function getOpt(cp,k){return (snap.chain&&snap.chain[(cp==='P'?'P':'C')+k])||null;}
 function compute(){
   const atm=snap.atm;
   const sp=getOpt('P',atm-100)||{bid:0,ask:0};
@@ -119,25 +118,19 @@ function compute(){
   const ivOk=snap.iv>0.25;
   return {atm,sp,lp,sc3,sc4,lc4,credit3,credit4,maxWin3,maxLossDown,maxWin4,maxLoss4,ivOk,passed:(ivOk?1:0)+2,blocked:1,waiting:2};
 }
-
 function usedStrike(k,c){
   if(mode==='3') return [c.atm-100,c.atm-500,c.atm+300].includes(k);
   return [c.atm-100,c.atm-500,c.atm+400,c.atm+800].includes(k);
 }
-
 function render(){
-  const c=compute();
-  const idx=snap.idx||{};
-  const im=snap.im||{};
-  document.getElementById('status').textContent=(live?'Live 新浪 · ':'缓存 · ')+(snap.asOf||im.time||'');
-
+  const c=compute(); const idx=snap.idx||{}; const im=snap.im||{};
+  document.getElementById('status').textContent=(live?'实时 · ':'缓存 · ')+(snap.asOf||im.time||'');
   const chgCls=(idx.pct||0)>=0?'up':'down';
   document.getElementById('mkt').innerHTML=`
     <div class="card"><div class="k">${idx.name||'中证1000'}</div><div class="v">${fmt(idx.last,2)}</div>
       <div class="tiny chg ${chgCls}">${(idx.chg>=0?'+':'')+fmt(idx.chg,2)} · ${(idx.pct>=0?'+':'')+fmt(idx.pct,2)}%</div></div>
-    <div class="card"><div class="k">ATM IV</div><div class="v">${(snap.iv*100).toFixed(1)}%</div>
+    <div class="card"><div class="k">ATM 隐含波动率</div><div class="v">${(snap.iv*100).toFixed(1)}%</div>
       <div class="tiny">ATM ${c.atm} · IM ${fmt(im.last,1)}</div></div>`;
-
   document.getElementById('fut').innerHTML=`
     <h2>期货 IM2611</h2>
     <div class="row"><span>最新</span><strong>${fmt(im.last,1)}</strong></div>
@@ -145,11 +138,9 @@ function render(){
     <div class="row"><span>开 / 高 / 低</span><span>${fmt(im.open,1)} / ${fmt(im.high,1)} / ${fmt(im.low,1)}</span></div>
     <div class="row"><span>结算参考</span><span>${fmt(im.settle,1)}</span></div>
     <div class="note">${im.time||snap.asOf||''}</div>`;
-
   let rows='';
   for(const off of STRIKE_OFFS){
-    const k=c.atm+off;
-    const p=getOpt('P',k), call=getOpt('C',k);
+    const k=c.atm+off; const p=getOpt('P',k), call=getOpt('C',k);
     const cls=(k===c.atm?'atm':'')+(usedStrike(k,c)?' used':'');
     rows+=`<tr class="${cls}"><td>${k}${k===c.atm?' ★':''}</td>
       <td>${p?fmt(p.bid,1):'—'}</td><td>${p?fmt(p.last,1):'—'}</td><td>${p?fmt(p.ask,1):'—'}</td>
@@ -157,96 +148,79 @@ function render(){
   }
   document.getElementById('chainCard').innerHTML=`
     <h2>期权链 MO2611</h2>
-    <div class="tiny">围绕 ATM±；蓝色行为策略腿。左 Put · 右 Call</div>
+    <div class="tiny">围绕 ATM；蓝色为策略腿。左 Put · 右 Call</div>
     <div class="scrollx"><table class="chain">
       <thead><tr><th>行权价</th><th>P买</th><th>P最新</th><th>P卖</th><th>C买</th><th>C最新</th><th>C卖</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
-
+      <tbody>${rows}</tbody></table></div>`;
   document.getElementById('trigMetrics').innerHTML=`
-    <div class="card"><div class="k">Passed</div><div class="v win">${c.passed}</div></div>
-    <div class="card"><div class="k">Not clear</div><div class="v warn">${c.blocked}</div></div>
-    <div class="card"><div class="k">Waiting</div><div class="v warn">${c.waiting}</div></div>`;
+    <div class="card"><div class="k">已满足</div><div class="v win">${c.passed}</div></div>
+    <div class="card"><div class="k">未核实</div><div class="v warn">${c.blocked}</div></div>
+    <div class="card"><div class="k">待确认</div><div class="v warn">${c.waiting}</div></div>`;
   document.getElementById('trigCard').innerHTML=`
-    <div class="k">Entry triggers</div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>IV &gt; 25%</span><span class="pill ok">passed</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>Days left &gt; 5</span><span class="pill ok">passed</span></div><div class="note">MO2611 → 2026-11-20 (~11 trading days)</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>Near-month quotes OK</span><span class="pill ok">passed</span></div></div>
-    <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV down 2 hours in a row</span><span class="pill bad">not verified</span></div><div class="note">Need consecutive hour IV bars</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>No take-profit month block</span><span class="pill wait">waiting</span></div><div class="note">Tell me your open positions</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>Stack &lt; 3 groups</span><span class="pill wait">waiting</span></div></div>
-    <div class="note"><strong>Bottom line:</strong> 3/6 passed — not a full go-signal under strict rules.</div>`;
-
+    <div class="k">开仓条件</div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>IV &gt; 25%</span><span class="pill ok">已过</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>剩余交易日 &gt; 5</span><span class="pill ok">已过</span></div><div class="note">MO2611 → 2026-11-20（约 11 个交易日）</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>近月盘口正常</span><span class="pill ok">已过</span></div></div>
+    <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV 连续两小时下行</span><span class="pill bad">未核实</span></div><div class="note">需要连续小时 IV</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>当月未触发止盈封锁</span><span class="pill wait">待确认</span></div><div class="note">告诉我你的持仓后可算</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>叠加组数 &lt; 3</span><span class="pill wait">待确认</span></div></div>
+    <div class="note"><strong>结论：</strong>6 条里过了 3 条，严格规则下还不能算开仓信号。</div>`;
   if(mode==='3'){
     document.getElementById('pnl').innerHTML=`
       <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin3)}</div><div class="note">保留全部权利金 ${c.credit3.toFixed(1)} 点</div></div>
-      <div class="card"><div class="k">下行最差</div><div class="v loss">${yen(c.maxLossDown)}</div><div class="note">400点 put 翼 − 权利金</div></div>
-      <div class="card"><div class="k">上行最差</div><div class="v loss">Unlimited</div><div class="note">3腿无保护 call</div></div>`;
+      <div class="card"><div class="k">下行最差</div><div class="v loss">${yen(c.maxLossDown)}</div><div class="note">400 点 put 翼 − 权利金</div></div>
+      <div class="card"><div class="k">上行最差</div><div class="v loss">不封顶</div><div class="note">三腿无保护 call</div></div>`;
   } else {
     document.getElementById('pnl').innerHTML=`
       <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin4)}</div><div class="note">权利金 ${c.credit4.toFixed(1)} 点</div></div>
-      <div class="card"><div class="k">两侧最差</div><div class="v loss">${yen(c.maxLoss4)}</div><div class="note">400点翼 − 权利金（封顶）</div></div>`;
+      <div class="card"><div class="k">两侧最差</div><div class="v loss">${yen(c.maxLoss4)}</div><div class="note">400 点翼 − 权利金（封顶）</div></div>`;
   }
   document.getElementById('legs').innerHTML=`
     <div class="k">结构 · IM ${fmt(im.last,1)} · ATM ${c.atm}</div>
-    <div class="row"><span>Sell P${c.atm-100}</span><span>${fmt(c.sp.bid,1)} × ${c.sp.bvol||0}</span></div>
-    <div class="row"><span>Buy P${c.atm-500}</span><span>${fmt(c.lp.ask,1)} × ${c.lp.svol||0}</span></div>
-    <div class="row"><span>${mode==='3'?'Sell C'+(c.atm+300):'Sell C'+(c.atm+400)}</span><span>${fmt((mode==='3'?c.sc3:c.sc4).bid,1)}</span></div>
-    ${mode==='4'?`<div class="row"><span>Buy C${c.atm+800}</span><span>${fmt(c.lc4.ask,1)}</span></div>`:''}
+    <div class="row"><span>卖 P${c.atm-100}</span><span>${fmt(c.sp.bid,1)} × ${c.sp.bvol||0}</span></div>
+    <div class="row"><span>买 P${c.atm-500}</span><span>${fmt(c.lp.ask,1)} × ${c.lp.svol||0}</span></div>
+    <div class="row"><span>${mode==='3'?'卖 C'+(c.atm+300):'卖 C'+(c.atm+400)}</span><span>${fmt((mode==='3'?c.sc3:c.sc4).bid,1)}</span></div>
+    ${mode==='4'?`<div class="row"><span>买 C${c.atm+800}</span><span>${fmt(c.lc4.ask,1)}</span></div>`:''}
     <div class="row"><span>保守权利金</span><strong>${(mode==='3'?c.credit3:c.credit4).toFixed(1)} 点</strong></div>`;
 }
-
 function seedFallbackChain(){
-  // morning snapshot legs only
   const base={
     P6500:{bvol:7,bid:137.8,last:137.6,ask:138.6,svol:2},
     P6100:{bvol:10,bid:38.4,last:38.6,ask:38.6,svol:6},
     C6900:{bvol:15,bid:79.0,last:80.2,ask:80.2,svol:4},
     C7000:{bvol:3,bid:57.2,last:57.4,ask:57.6,svol:11},
     C7400:{bvol:18,bid:12.8,last:13.2,ask:13.0,svol:1},
-    P6600:{bvol:0,bid:0,last:0,ask:0,svol:0},
-    C6600:{bvol:0,bid:0,last:0,ask:0,svol:0},
   };
   FALLBACK.chain=base; snap.chain=JSON.parse(JSON.stringify(base));
 }
 seedFallbackChain();
-
 function pull(){
-  document.getElementById('status').textContent='Refreshing…';
-  // first pull index+fut to get ATM, then chain — single list with wide band around likely ATM
-  const guess=snap.atm||6600;
-  const strikes=[];
+  document.getElementById('status').textContent='刷新中…';
+  const guess=snap.atm||6600; const strikes=[];
   for(let k=guess-600;k<=guess+900;k+=100) strikes.push(k);
-  const opts=[];
-  for(const k of strikes){ opts.push('P_OP_mo2611P'+k,'P_OP_mo2611C'+k); }
+  const opts=[]; for(const k of strikes){ opts.push('P_OP_mo2611P'+k,'P_OP_mo2611C'+k); }
   const list=['s_sh000852','nf_IM2611'].concat(opts).join(',');
   const s=document.createElement('script');
-  s.src='https://hq.sinajs.cn/list='+list+'&_='+Date.now();
-  s.charset='gbk';
+  s.src='https://hq.sinajs.cn/list='+list+'&_='+Date.now(); s.charset='gbk';
   s.onload=()=>{
     try{
       const idx=parseIdx(window.hq_str_s_sh000852||'');
       const im=parseFut(window.hq_str_nf_IM2611||'');
       const last=im&&im.last?im.last:(idx&&idx.last?idx.last:6600);
-      const atm=Math.round(last/100)*100;
-      const chain={};
+      const atm=Math.round(last/100)*100; const chain={};
       for(const off of STRIKE_OFFS){
         const k=atm+off;
         const p=parseOpt(window['hq_str_P_OP_mo2611P'+k]);
         const c=parseOpt(window['hq_str_P_OP_mo2611C'+k]);
-        if(p) chain['P'+k]=p;
-        if(c) chain['C'+k]=c;
+        if(p) chain['P'+k]=p; if(c) chain['C'+k]=c;
       }
       snap={asOf:(im&&im.time)||new Date().toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),
         idx:idx||snap.idx, im:im||snap.im, atm, iv:snap.iv, chain};
       live=true; render();
-    }catch(e){
-      document.getElementById('status').textContent='Live pull failed, showing cache';
-      live=false; render();
-    }
+    }catch(e){ document.getElementById('status').textContent='实时失败，显示缓存'; live=false; render(); }
     s.remove();
   };
-  s.onerror=()=>{ document.getElementById('status').textContent='Live pull blocked — cached snapshot'; live=false; render(); s.remove(); };
+  s.onerror=()=>{ document.getElementById('status').textContent='实时被拦，显示缓存'; live=false; render(); s.remove(); };
   document.body.appendChild(s);
 }
 render(); pull(); setInterval(pull, 300000);
