@@ -29,9 +29,11 @@ h1{font-size:22px;margin:0 0 4px}
 .note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
 .pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px}
 .ok{background:#123528;color:var(--win)}.bad{background:#3a1d24;color:var(--loss)}.wait{background:#3a2a12;color:var(--warn)}
-.trig{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.trig{display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
 .trig:last-child{border:0}
-.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:0 0 auto}
+.trig-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.trig .note{margin-top:0;overflow-wrap:anywhere;word-break:break-word}
+.dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:var(--win)}.dot.bad{background:var(--loss)}.dot.wait{background:var(--warn)}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
 button.refresh{border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:14px;padding:14px 20px;font-size:17px;min-height:48px;min-width:96px}
@@ -110,12 +112,12 @@ function render(){
     <div class="card"><div class="k">Waiting</div><div class="v warn">${c.waiting}</div></div>`;
   document.getElementById('trigCard').innerHTML=`
     <div class="k">Entry triggers</div>
-    <div class="trig"><span class="dot ok"></span><div>IV &gt; 25% <span class="pill ok">passed</span><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div></div>
-    <div class="trig"><span class="dot ok"></span><div>Days left &gt; 5 <span class="pill ok">passed</span><div class="note">MO2611 → 2026-11-20 (~11 trading days)</div></div>
-    <div class="trig"><span class="dot ok"></span><div>Near-month quotes OK <span class="pill ok">passed</span></div></div>
-    <div class="trig"><span class="dot bad"></span><div>IV down 2 hours in a row <span class="pill bad">not verified</span><div class="note">Need consecutive hour IV bars</div></div></div>
-    <div class="trig"><span class="dot wait"></span><div>No take-profit month block <span class="pill wait">waiting</span><div class="note">Tell me your open positions</div></div></div>
-    <div class="trig"><span class="dot wait"></span><div>Stack &lt; 3 groups <span class="pill wait">waiting</span></div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>IV &gt; 25%</span><span class="pill ok">passed</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>Days left &gt; 5</span><span class="pill ok">passed</span></div><div class="note">MO2611 → 2026-11-20 (~11 trading days)</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>Near-month quotes OK</span><span class="pill ok">passed</span></div></div>
+    <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV down 2 hours in a row</span><span class="pill bad">not verified</span></div><div class="note">Need consecutive hour IV bars</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>No take-profit month block</span><span class="pill wait">waiting</span></div><div class="note">Tell me your open positions</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>Stack &lt; 3 groups</span><span class="pill wait">waiting</span></div></div>
     <div class="note"><strong>Bottom line:</strong> 3/6 passed — not a full go-signal under strict rules.</div>`;
   if(mode==='3'){
     document.getElementById('pnl').innerHTML=`
