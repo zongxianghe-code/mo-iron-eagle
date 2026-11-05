@@ -157,7 +157,7 @@ function pull(){
   s.onerror=()=>{ document.getElementById('status').textContent='Live pull blocked — cached snapshot'; live=false; render(); s.remove(); };
   document.body.appendChild(s);
 }
-render(); pull(); setInterval(pull, 15000);
+render(); pull(); setInterval(pull, 300000);
 </script>
 </body>
 </html>
