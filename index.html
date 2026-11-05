@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#0b1220"/>
+<title>MO Iron Eagle</title>
+<link rel="manifest" href="manifest.json"/>
+<style>
+:root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:var(--bg);color:var(--text);padding:16px;padding-bottom:48px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;line-height:1.45;margin-bottom:14px}
+.seg{display:flex;gap:8px;margin:0 0 14px}
+.seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px}
+.seg button.on{background:var(--accent);color:#041018;border:0;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.k{color:var(--muted);font-size:12px}
+.v{font-size:30px;font-weight:750;margin-top:6px;letter-spacing:.01em}
+.win{color:var(--win)}.loss{color:var(--loss)}.warn{color:var(--warn)}
+.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.metrics .card{margin:0;padding:12px}
+.metrics .v{font-size:26px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.row:last-child{border:0}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
+.pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px}
+.ok{background:#123528;color:var(--win)}.bad{background:#3a1d24;color:var(--loss)}.wait{background:#3a2a12;color:var(--warn)}
+.trig{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.trig:last-child{border:0}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:0 0 auto}
+.dot.ok{background:var(--win)}.dot.bad{background:var(--loss)}.dot.wait{background:var(--warn)}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+button.refresh{border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:10px;padding:8px 12px}
+.status{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1>MO Iron Eagle</h1>
+    <div class="sub" style="margin:0">CSI1000 short-vol · phone review</div>
+  </div>
+  <button class="refresh" id="btn" type="button">Refresh</button>
+</div>
+<div class="status" id="status">Loading…</div>
+<div class="sub">Not investment advice. Snapshot + public Sina quotes when reachable.</div>
+
+<div class="seg">
+  <button type="button" id="b3" class="on">3-leg</button>
+  <button type="button" id="b4">4-leg</button>
+</div>
+
+<div class="metrics" id="trigMetrics"></div>
+<div class="card" id="trigCard"></div>
+<div id="pnl"></div>
+<div class="card" id="legs"></div>
+<div class="card note">
+  Historical book drawdown (backtest): 3-leg IV&gt;25% ≈ <strong>20.5%</strong> on ~¥350k; 4-leg capped ≈ <strong>¥432,793 (41.6%)</strong>.
+</div>
+
+<script>
+const FALLBACK = {
+  asOf: '2026-11-05 10:02 Asia/Shanghai',
+  im: 6619.8, atm: 6600, iv: 0.35,
+  sp: {bid:137.8, ask:138.6, last:137.6, bvol:7, svol:2},
+  lp: {bid:38.4, ask:38.6, last:38.6, bvol:10, svol:6},
+  sc3: {bid:79.0, ask:80.2, last:80.2, bvol:15, svol:4},
+  sc4: {bid:57.2, ask:57.6, last:57.4, bvol:3, svol:11},
+  lc4: {bid:12.8, ask:13.0, last:13.2, bvol:18, svol:1},
+};
+let mode='3', snap={...FALLBACK}, live=false;
+const fee=16.5, mult=100;
+
+function money(n){return '¥'+Math.round(Math.abs(n)).toLocaleString()*(n<0?-1:1).toString().replace(/^(-?)(.+)$/,(_,s,b)=>s+b) }
+function yen(n){const s=Math.round(n).toLocaleString('en-US');return (n<0?'-':'')+'¥'+s.replace('-','');}
+function setMode(m){mode=m;document.getElementById('b3').classList.toggle('on',m==='3');document.getElementById('b4').classList.toggle('on',m==='4');render();}
+document.getElementById('b3').onclick=()=>setMode('3');
+document.getElementById('b4').onclick=()=>setMode('4');
+document.getElementById('btn').onclick=()=>pull();
+
+function parseOpt(s){const p=s.split(',');return {bvol:+p[0],bid:+p[1],last:+p[2],ask:+p[3],svol:+p[4]};}
+function parseFut(s){const p=s.split(',');return {last:+p[3],time:(p[36]||'')+' '+(p[37]||'')};}
+
+function compute(){
+  const atm=snap.atm, credit3=snap.sp.bid+snap.sc3.bid-snap.lp.ask;
+  const credit4=snap.sp.bid+snap.sc4.bid-snap.lp.ask-snap.lc4.ask;
+  const maxWin3=credit3*mult-3*fee, maxLossDown=(400-credit3)*mult+3*fee;
+  const maxWin4=credit4*mult-4*fee, maxLoss4=(400-credit4)*mult+4*fee;
+  const ivOk=snap.iv>0.25, daysOk=true, quotesOk=true, dec2=false;
+  return {credit3,credit4,maxWin3,maxLossDown,maxWin4,maxLoss4,ivOk,daysOk,quotesOk,dec2,
+    passed: (ivOk?1:0)+(daysOk?1:0)+(quotesOk?1:0), blocked: dec2?0:1, waiting:2};
+}
+
+function render(){
+  const c=compute();
+  document.getElementById('status').textContent = (live?'Live Sina · ':'Cached snapshot · ')+ (snap.asOf||snap.time||'');
+  document.getElementById('trigMetrics').innerHTML=`
+    <div class="card"><div class="k">Passed</div><div class="v win">${c.passed}</div></div>
+    <div class="card"><div class="k">Not clear</div><div class="v warn">${c.blocked}</div></div>
+    <div class="card"><div class="k">Waiting</div><div class="v warn">${c.waiting}</div></div>`;
+  document.getElementById('trigCard').innerHTML=`
+    <div class="k">Entry triggers</div>
+    <div class="trig"><span class="dot ok"></span><div>IV &gt; 25% <span class="pill ok">passed</span><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div></div>
+    <div class="trig"><span class="dot ok"></span><div>Days left &gt; 5 <span class="pill ok">passed</span><div class="note">MO2611 → 2026-11-20 (~11 trading days)</div></div>
+    <div class="trig"><span class="dot ok"></span><div>Near-month quotes OK <span class="pill ok">passed</span></div></div>
+    <div class="trig"><span class="dot bad"></span><div>IV down 2 hours in a row <span class="pill bad">not verified</span><div class="note">Need consecutive hour IV bars</div></div></div>
+    <div class="trig"><span class="dot wait"></span><div>No take-profit month block <span class="pill wait">waiting</span><div class="note">Tell me your open positions</div></div></div>
+    <div class="trig"><span class="dot wait"></span><div>Stack &lt; 3 groups <span class="pill wait">waiting</span></div></div>
+    <div class="note"><strong>Bottom line:</strong> 3/6 passed — not a full go-signal under strict rules.</div>`;
+  if(mode==='3'){
+    document.getElementById('pnl').innerHTML=`
+      <div class="card"><div class="k">Most you can make</div><div class="v win">${yen(c.maxWin3)}</div><div class="note">Keep full credit ${c.credit3.toFixed(1)} pts</div></div>
+      <div class="card"><div class="k">Worst down move</div><div class="v loss">${yen(c.maxLossDown)}</div><div class="note">400-pt put wing − credit</div></div>
+      <div class="card"><div class="k">Worst up move</div><div class="v loss">Unlimited</div><div class="note">3-leg has no long call</div></div>`;
+  } else {
+    document.getElementById('pnl').innerHTML=`
+      <div class="card"><div class="k">Most you can make</div><div class="v win">${yen(c.maxWin4)}</div><div class="note">Full credit ${c.credit4.toFixed(1)} pts</div></div>
+      <div class="card"><div class="k">Worst either side</div><div class="v loss">${yen(c.maxLoss4)}</div><div class="note">400-pt wing − credit (capped)</div></div>`;
+  }
+  document.getElementById('legs').innerHTML=`
+    <div class="k">Structure · IM2611 ${snap.im} · ATM ${snap.atm}</div>
+    <div class="row"><span>Sell P${snap.atm-100}</span><span>${snap.sp.bid} × ${snap.sp.bvol}</span></div>
+    <div class="row"><span>Buy P${snap.atm-500}</span><span>${snap.lp.ask} × ${snap.lp.svol}</span></div>
+    <div class="row"><span>${mode==='3'?'Sell C'+(snap.atm+300):'Sell C'+(snap.atm+400)}</span><span>${mode==='3'?snap.sc3.bid:snap.sc4.bid}</span></div>
+    ${mode==='4'?`<div class="row"><span>Buy C${snap.atm+800}</span><span>${snap.lc4.ask}</span></div>`:''}
+    <div class="row"><span>Conservative credit</span><strong>${(mode==='3'?c.credit3:c.credit4).toFixed(1)} pts</strong></div>`;
+}
+
+function pull(){
+  document.getElementById('status').textContent='Refreshing…';
+  const list=['nf_IM2611','P_OP_mo2611P6500','P_OP_mo2611P6100','P_OP_mo2611C6900','P_OP_mo2611C7000','P_OP_mo2611C7400','P_OP_mo2611C6600','P_OP_mo2611P6600'].join(',');
+  const s=document.createElement('script');
+  s.src='https://hq.sinajs.cn/list='+list+'&_='+Date.now();
+  s.charset='gbk';
+  s.onload=()=>{
+    try{
+      const im=parseFut(hq_str_nf_IM2611||'');
+      const atm=Math.round((im.last||6600)/100)*100;
+      snap={
+        asOf: im.time.trim()+' (Sina)',
+        im: im.last, atm, iv: snap.iv,
+        sp: parseOpt(window['hq_str_P_OP_mo2611P'+(atm-100)]||hq_str_P_OP_mo2611P6500),
+        lp: parseOpt(window['hq_str_P_OP_mo2611P'+(atm-500)]||hq_str_P_OP_mo2611P6100),
+        sc3: parseOpt(window['hq_str_P_OP_mo2611C'+(atm+300)]||hq_str_P_OP_mo2611C6900),
+        sc4: parseOpt(window['hq_str_P_OP_mo2611C'+(atm+400)]||hq_str_P_OP_mo2611C7000),
+        lc4: parseOpt(window['hq_str_P_OP_mo2611C'+(atm+800)]||hq_str_P_OP_mo2611C7400),
+      };
+      // rough IV keep previous unless we can improve later
+      live=true; render();
+    }catch(e){ document.getElementById('status').textContent='Live pull failed, showing cache'; live=false; render(); }
+    s.remove();
+  };
+  s.onerror=()=>{ document.getElementById('status').textContent='Live pull blocked — cached snapshot'; live=false; render(); s.remove(); };
+  document.body.appendChild(s);
+}
+render(); pull(); setInterval(pull, 15000);
+</script>
+</body>
+</html>
