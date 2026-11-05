@@ -35,8 +35,8 @@ h1{font-size:22px;margin:0 0 4px}
 .trig .note{margin-top:0;overflow-wrap:anywhere;word-break:break-word}
 .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:var(--win)}.dot.bad{background:var(--loss)}.dot.wait{background:var(--warn)}
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
-button.refresh{border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:14px;padding:14px 20px;font-size:17px;min-height:48px;min-width:96px}
+.topbar{margin-bottom:8px}
+button.refresh{display:block;width:100%;border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:14px;padding:16px 20px;font-size:18px;min-height:56px;margin:12px 0 16px}
 .status{font-size:12px;color:var(--muted);margin-bottom:8px}
 .v{overflow-wrap:anywhere;word-break:break-word;line-height:1.15}
 .metrics{grid-template-columns:1fr;gap:10px}
@@ -48,13 +48,11 @@ button.refresh{border:0;background:var(--accent);color:#041018;font-weight:700;b
 </head>
 <body>
 <div class="topbar">
-  <div>
-    <h1>MO Iron Eagle</h1>
-    <div class="sub" style="margin:0">CSI1000 short-vol · phone review</div>
-  </div>
-  <button class="refresh" id="btn" type="button">刷新 Refresh</button>
+  <h1>MO Iron Eagle</h1>
+  <div class="sub" style="margin:0">CSI1000 short-vol · phone review</div>
 </div>
 <div class="status" id="status">Loading…</div>
+<button class="refresh" id="btn" type="button">刷新 Refresh</button>
 <div class="sub">Not investment advice. Snapshot + public Sina quotes when reachable.</div>
 
 <div class="seg">
