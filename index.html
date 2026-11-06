@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611061047"/>
+<link rel="manifest" href="manifest.json?v=202611061718"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -68,6 +68,9 @@ svg.payoff{width:100%;height:auto;display:block;background:#0f1828;border-radius
 <body>
 <h1>MO 铁鹰</h1>
 <div class="sub">中证1000 短波动 · 手机复盘</div>
+<div class="nav" style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;font-size:13px">
+  <a href="https://zongxianghe-code.github.io/lh-board/" style="color:var(--accent);text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px">生猪 LH</a>
+</div>
 <div class="tabs">
   <button type="button" id="tabStrat" class="on">策略盘口</button>
   <button type="button" id="tabBasis">贴水年化</button>
@@ -456,7 +459,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611061047';
+const APP_VER='202611061718';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
