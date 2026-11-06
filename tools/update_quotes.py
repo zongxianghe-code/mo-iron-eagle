@@ -48,6 +48,45 @@ def parse_opt(s: str) -> dict:
         "ask": float(p[3] or 0), "svol": float(p[4] or 0),
     }
 
+
+def norm_cdf(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+def bs_price(F: float, K: float, T: float, vol: float, cp: str) -> float:
+    """Futures/forward Black76 undiscounted (r≈0 for IV shape); MO priced vs IM."""
+    if T <= 0 or vol <= 0 or F <= 0 or K <= 0:
+        return max(0.0, (F - K) if cp == "C" else (K - F))
+    s = vol * math.sqrt(T)
+    d1 = (math.log(F / K) + 0.5 * vol * vol * T) / s
+    d2 = d1 - s
+    if cp == "C":
+        return F * norm_cdf(d1) - K * norm_cdf(d2)
+    return K * norm_cdf(-d2) - F * norm_cdf(-d1)
+
+def implied_vol(F: float, K: float, T: float, price: float, cp: str) -> float | None:
+    """Bisection IV; price in index points."""
+    if price is None or price <= 0 or F <= 0 or K <= 0 or T <= 0:
+        return None
+    lo, hi = 1e-4, 3.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        model = bs_price(F, K, T, mid, cp)
+        if model > price:
+            hi = mid
+        else:
+            lo = mid
+    iv = 0.5 * (lo + hi)
+    if iv <= 1e-3 or iv >= 2.99:
+        return None
+    return iv
+
+def calendar_years_to_expiry(exp_yyyy_mm_dd: str, now) -> float:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    exp = datetime.fromisoformat(exp_yyyy_mm_dd + "T15:00:00").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+    secs = (exp - now).total_seconds()
+    return max(secs / (365.0 * 24 * 3600), 1.0 / 365.0)
+
 def main() -> None:
     m1 = parse_map(fetch(",".join(BASE)))
     im = parse_fut(m1["nf_IM2611"]) if m1.get("nf_IM2611") else None
@@ -65,13 +104,19 @@ def main() -> None:
                 chain[f"P{k}"] = parse_opt(mm[pk])
             if ck in mm:
                 chain[f"C{k}"] = parse_opt(mm[ck])
+    # ATM IV: Black-76 style invert on ATM call & put mids, then average
     iv = None
     cp, pp = chain.get(f"C{atm}"), chain.get(f"P{atm}")
+    now_for_t = datetime.now(TZ)
+    T = calendar_years_to_expiry("2026-11-20", now_for_t)  # MO2611 第三周五
     if cp and pp and last:
         mid_c = (cp["bid"] + cp["ask"]) / 2 if cp["bid"] and cp["ask"] else cp["last"]
         mid_p = (pp["bid"] + pp["ask"]) / 2 if pp["bid"] and pp["ask"] else pp["last"]
-        T = max(10 / 365.0, 1 / 365.0)
-        iv = max(0.05, min(1.5, (mid_c + mid_p) / (0.8 * last * math.sqrt(T))))
+        iv_c = implied_vol(last, float(atm), T, mid_c, "C")
+        iv_p = implied_vol(last, float(atm), T, mid_p, "P")
+        vals = [x for x in (iv_c, iv_p) if x is not None]
+        if vals:
+            iv = sum(vals) / len(vals)
     now = datetime.now(TZ)
     payload = {
         "asOf": now.strftime("%Y-%m-%d %H:%M:%S") + " Asia/Shanghai",
