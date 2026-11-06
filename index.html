@@ -67,7 +67,7 @@ h2{font-size:15px;margin:0 0 8px;font-weight:700}
 </div>
 <div class="status" id="status">加载中…</div>
 <button class="refresh" id="btn" type="button">刷新</button>
-<div class="sub" id="sessHint">中金所股指：9:30–11:30、13:00–15:00；9:00–9:30 只刷指数。非交易时段不自动刷新。</div>
+<div class="sub" id="sessHint">行情由代理写入 quotes.json（新浪会拦 GitHub 域名直连）。交易时段约每 5 分钟更新；点刷新读最新文件。</div>
 
 <section class="panel on" id="panelStrat">
   <div class="grid2" id="mkt"></div>
@@ -184,7 +184,7 @@ function usedStrike(k,c){
 
 function setStatus(extra){
   const sess=sessionMode();
-  const src=live?'实时':'缓存';
+  const src=live?'文件行情':'缓存';
   document.getElementById('status').textContent=`${src} · ${snap.asOf||sess.t.label} · ${sess.reason}${extra?(' · '+extra):''}`;
 }
 
@@ -272,72 +272,40 @@ function renderBasis(){
   setStatus();
 }
 
-function loadScript(list){
-  return new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src='https://hq.sinajs.cn/list='+list.join(',')+'&_='+Date.now();
-    s.charset='gbk';
-    s.onload=()=>{resolve(); s.remove();};
-    s.onerror=()=>{reject(new Error('blocked')); s.remove();};
-    document.body.appendChild(s);
-  });
-}
-
-async function pullIndexOnly(){
-  await loadScript(['s_sh000852','s_sh000905']);
-  const i1000=parseIdx(window.hq_str_s_sh000852||'');
-  const i500=parseIdx(window.hq_str_s_sh000905||'');
-  if(i1000) snap.idx=i1000;
-  snap.asOf=shanghaiNow().label+'（指数）';
+async function pullQuotes(){
+  const r=await fetch('quotes.json?_='+Date.now(),{cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const d=await r.json();
+  if(!d||!d.im) throw new Error('empty');
+  snap={
+    asOf:d.asOf||shanghaiNow().label,
+    idx:d.idx||snap.idx,
+    im:d.im||snap.im,
+    atm:d.atm||snap.atm,
+    iv:(d.iv!=null?d.iv:snap.iv),
+    chain:d.chain||{}
+  };
   live=true;
-  basisData.idx['s_sh000852']=i1000||basisData.idx['s_sh000852'];
-  basisData.idx['s_sh000905']=i500||basisData.idx['s_sh000905'];
-  basisData.time=snap.asOf; basisData.live=true;
-  renderStrat(); renderBasis();
-}
-
-async function pullFull(){
-  const guess=snap.atm||6600; const strikes=[];
-  for(let k=guess-600;k<=guess+900;k+=100) strikes.push(k);
-  const opts=[]; for(const k of strikes){ opts.push('P_OP_mo2611P'+k,'P_OP_mo2611C'+k); }
-  const list=['s_sh000852','s_sh000905','nf_IM2611'];
-  for(const g of GROUPS) for(const m of g.months) list.push('nf_'+g.key+m);
-  list.push(...opts);
-  await loadScript(list);
-  const idx=parseIdx(window.hq_str_s_sh000852||'');
-  const im=parseFut(window.hq_str_nf_IM2611||'');
-  const last=im&&im.last?im.last:(idx&&idx.last?idx.last:6600);
-  const atm=Math.round(last/100)*100; const chain={};
-  for(const off of STRIKE_OFFS){
-    const k=atm+off;
-    const p=parseOpt(window['hq_str_P_OP_mo2611P'+k]);
-    const c=parseOpt(window['hq_str_P_OP_mo2611C'+k]);
-    if(p) chain['P'+k]=p; if(c) chain['C'+k]=c;
+  if(d.basis){
+    basisData={idx:d.basis.idx||{},fut:d.basis.fut||{},time:d.basis.time||d.asOf||'',live:true};
   }
-  snap={asOf:(im&&im.time)||shanghaiNow().label, idx:idx||snap.idx, im:im||snap.im, atm, iv:snap.iv, chain};
-  live=true;
-  const bIdx={}, bFut={}; let time='';
-  for(const g of GROUPS){
-    bIdx[g.idx]=parseIdx(window['hq_str_'+g.idx]||'');
-    for(const m of g.months){
-      const key='nf_'+g.key+m; const f=parseFut(window['hq_str_'+key]||'');
-      if(f){ bFut[key]=f; if(f.time) time=f.time; }
-    }
-  }
-  basisData={idx:bIdx,fut:bFut,time,live:true};
   renderStrat(); renderBasis();
 }
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
+  const btn=document.getElementById('btn');
   try{
-    if(forceFull || sess.mode==='full') await pullFull();
-    else if(sess.mode==='index') await pullIndexOnly();
-    else { setStatus('点刷新可强制拉取'); renderStrat(); renderBasis(); }
+    if(btn){ btn.disabled=true; btn.textContent='刷新中…'; }
+    // Pages 不能直连新浪（防盗链 403）；统一读仓库里的 quotes.json
+    if(forceFull || sess.mode!=='off') await pullQuotes();
+    else { setStatus('非交易时段 · 点刷新仍可读最新文件'); await pullQuotes(); }
   }catch(e){
     live=false;
-    document.getElementById('status').textContent='拉取失败 · '+sess.reason;
+    document.getElementById('status').textContent='拉取失败（'+((e&&e.message)||'error')+'）· 仍显示缓存 '+ (snap.asOf||'');
     renderStrat(); renderBasis();
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='刷新'; }
   }
 }
 function manualRefresh(){ smartRefresh(true); }

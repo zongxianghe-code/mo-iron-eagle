@@ -1,0 +1,36 @@
+name: update-quotes
+on:
+  schedule:
+    # every 5 min UTC = every 5 min; filtered in job for Shanghai session
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch quotes (Shanghai session only)
+        run: |
+          python3 - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          t = datetime.now(ZoneInfo('Asia/Shanghai'))
+          mins = t.hour*60 + t.minute
+          wd = t.weekday()  # Mon=0
+          in_sess = wd < 5 and ((9*60 <= mins < 11*60+35) or (13*60 <= mins < 15*60+5))
+          open('run.flag','w').write('1' if in_sess else '0')
+          print('shanghai', t.isoformat(), 'run', in_sess)
+          PY
+          if [ "$(cat run.flag)" != "1" ] && [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            echo "outside session, skip"
+            exit 0
+          fi
+          python3 tools/update_quotes.py
+      - name: Commit if changed
+        run: |
+          git config user.name "quotes-bot"
+          git config user.email "quotes-bot@users.noreply.github.com"
+          git add quotes.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "chore: refresh quotes.json"
+          git push
