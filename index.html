@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="theme-color" content="#0b1220"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json"/>
+<link rel="manifest" href="manifest.json?v=202611061027"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -67,7 +71,7 @@ h2{font-size:15px;margin:0 0 8px;font-weight:700}
 </div>
 <div class="status" id="status">加载中…</div>
 <button class="refresh" id="btn" type="button">刷新</button>
-<div class="sub" id="sessHint">行情由代理写入 quotes.json（新浪会拦 GitHub 域名直连）。交易时段约每 5 分钟更新；点刷新读最新文件。</div>
+<div class="sub" id="sessHint">行情文件约每 5 分钟更新。点刷新会整页重载（躲开桌面图标缓存）。若桌面图标仍是旧版：删掉图标 → Safari 打开链接 → 再添加到主屏幕。</div>
 
 <section class="panel on" id="panelStrat">
   <div class="grid2" id="mkt"></div>
@@ -292,14 +296,15 @@ async function pullQuotes(){
   renderStrat(); renderBasis();
 }
 
+const APP_VER='202611061027';
+
 async function smartRefresh(forceFull){
   const sess=sessionMode();
   const btn=document.getElementById('btn');
   try{
     if(btn){ btn.disabled=true; btn.textContent='刷新中…'; }
-    // Pages 不能直连新浪（防盗链 403）；统一读仓库里的 quotes.json
-    if(forceFull || sess.mode!=='off') await pullQuotes();
-    else { setStatus('非交易时段 · 点刷新仍可读最新文件'); await pullQuotes(); }
+    await pullQuotes();
+    if(sess.mode==='off' && !forceFull) setStatus('非交易时段 · 已读最新文件');
   }catch(e){
     live=false;
     document.getElementById('status').textContent='拉取失败（'+((e&&e.message)||'error')+'）· 仍显示缓存 '+ (snap.asOf||'');
@@ -308,7 +313,14 @@ async function smartRefresh(forceFull){
     if(btn){ btn.disabled=false; btn.textContent='刷新'; }
   }
 }
-function manualRefresh(){ smartRefresh(true); }
+/** 桌面图标/Safari 常锁旧 HTML；整页带时间戳重开，效果等同重新输入链接 */
+function manualRefresh(){
+  const btn=document.getElementById('btn');
+  if(btn){ btn.disabled=true; btn.textContent='刷新中…'; }
+  const hash=location.hash||'';
+  const base=location.pathname.endsWith('/')?location.pathname:(location.pathname.replace(/[^/]+$/,'')||'/');
+  location.replace(base + '?v=' + APP_VER + '&t=' + Date.now() + hash);
+}
 
 function seedFallbackChain(){
   const base={P6500:{bvol:7,bid:137.8,last:137.6,ask:138.6,svol:2},P6100:{bvol:10,bid:38.4,last:38.6,ask:38.6,svol:6},C6900:{bvol:15,bid:79.0,last:80.2,ask:80.2,svol:4},C7000:{bvol:3,bid:57.2,last:57.4,ask:57.6,svol:11},C7400:{bvol:18,bid:12.8,last:13.2,ask:13.0,svol:1}};
