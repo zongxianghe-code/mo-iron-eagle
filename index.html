@@ -13,15 +13,15 @@
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);padding:16px;padding-bottom:64px}
 h1{font-size:22px;margin:0 0 4px}
 .sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 8px}
-.nav{display:flex;gap:8px;margin:0 0 14px}
-.nav a{flex:1;text-align:center;text-decoration:none;color:var(--text);border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px;font-size:15px;font-weight:600}
-.nav a.on{background:var(--accent);color:#041018;border:0}
+.tabs{display:flex;gap:8px;margin:0 0 12px}
+.tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px;font-weight:600}
+.tabs button.on{background:var(--accent);color:#041018;border:0}
 .seg{display:flex;gap:8px;margin:0 0 14px}
 .seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px}
 .seg button.on{background:var(--accent);color:#041018;border:0;font-weight:700}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 .k{color:var(--muted);font-size:12px}
-.v{font-size:clamp(22px,7vw,34px);font-weight:750;margin-top:6px;letter-spacing:.01em;overflow-wrap:anywhere;word-break:break-word;line-height:1.15}
+.v{font-size:clamp(22px,7vw,34px);font-weight:750;margin-top:6px;overflow-wrap:anywhere;line-height:1.15}
 .win{color:var(--win)}.loss{color:var(--loss)}.warn{color:var(--warn)}
 .metrics{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px}
 @media (min-width:420px){.metrics{grid-template-columns:1fr 1fr 1fr}}
@@ -31,10 +31,10 @@ h1{font-size:22px;margin:0 0 4px}
 .note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
 .pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px}
 .ok{background:#123528;color:var(--win)}.bad{background:#3a1d24;color:var(--loss)}.wait{background:#3a2a12;color:var(--warn)}
-.trig{display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.trig{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
 .trig:last-child{border:0}
 .trig-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.trig .note{margin-top:0;overflow-wrap:anywhere}
+.trig .note{margin-top:0}
 .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:var(--win)}.dot.bad{background:var(--loss)}.dot.wait{background:var(--warn)}
 button.refresh{display:block;width:100%;border:0;background:var(--accent);color:#041018;font-weight:700;border-radius:14px;padding:16px 20px;font-size:18px;min-height:56px;margin:12px 0 16px}
@@ -42,7 +42,7 @@ button.refresh{display:block;width:100%;border:0;background:var(--accent);color:
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .grid2 .card{margin:0}
 .tiny{font-size:11px;color:var(--muted)}
-.chg.up{color:var(--loss)}.chg.down{color:var(--win)}
+.chg.up,.pos{color:var(--loss)}.chg.down,.neg{color:var(--win)}
 table.chain,table.basis{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
 table.chain th,table.chain td,table.basis th,table.basis td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 table.chain th:first-child,table.chain td:first-child,table.basis th:first-child,table.basis td:first-child{text-align:left}
@@ -51,59 +51,118 @@ table.chain tr.atm td{background:#1c2b44;font-weight:700}
 table.chain tr.used td{color:var(--accent)}
 table.basis tr.group td{background:var(--head);color:var(--accent);font-weight:700;text-align:left}
 table.basis tr.front .code{background:var(--blue);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700}
-table.basis .pos{color:var(--loss)}
-table.basis .neg{color:var(--win)}
 table.basis .strong{font-weight:700;color:#fff}
 .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
 h2{font-size:15px;margin:0 0 8px;font-weight:700}
+.panel{display:none}.panel.on{display:block}
+.basis-wrap{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;overflow-x:auto}
 </style>
 </head>
 <body>
 <h1>MO 铁鹰</h1>
 <div class="sub">中证1000 短波动 · 手机复盘</div>
-<nav class="nav">
-  <a class="on" href="index.html">策略盘口</a>
-  <a href="basis.html">贴水年化</a>
-</nav>
+<div class="tabs">
+  <button type="button" id="tabStrat" class="on">策略盘口</button>
+  <button type="button" id="tabBasis">贴水年化</button>
+</div>
 <div class="status" id="status">加载中…</div>
 <button class="refresh" id="btn" type="button">刷新</button>
-<div class="sub">非投资建议。优先拉新浪实时；失败则用缓存。</div>
+<div class="sub" id="sessHint">中金所股指：9:30–11:30、13:00–15:00；9:00–9:30 只刷指数。非交易时段不自动刷新。</div>
 
-<div class="grid2" id="mkt"></div>
-<div class="card" id="fut"></div>
-<div class="card" id="chainCard"></div>
+<section class="panel on" id="panelStrat">
+  <div class="grid2" id="mkt"></div>
+  <div class="card" id="fut"></div>
+  <div class="card" id="chainCard"></div>
+  <div class="seg">
+    <button type="button" id="b3" class="on">三腿</button>
+    <button type="button" id="b4">四腿</button>
+  </div>
+  <div class="metrics" id="trigMetrics"></div>
+  <div class="card" id="trigCard"></div>
+  <div id="pnl"></div>
+  <div class="card" id="legs"></div>
+  <div class="card note">历史回测回撤参考：三腿 IV&gt;25% ≈ <strong>20.5%</strong>（约¥35万）；四腿封顶 ≈ <strong>¥432,793（41.6%）</strong>。</div>
+</section>
 
-<div class="seg">
-  <button type="button" id="b3" class="on">三腿</button>
-  <button type="button" id="b4">四腿</button>
-</div>
-<div class="metrics" id="trigMetrics"></div>
-<div class="card" id="trigCard"></div>
-<div id="pnl"></div>
-<div class="card" id="legs"></div>
-<div class="card note">历史回测回撤参考：三腿 IV&gt;25% ≈ <strong>20.5%</strong>（约¥35万）；四腿封顶 ≈ <strong>¥432,793（41.6%）</strong>。</div>
+<section class="panel" id="panelBasis">
+  <div class="note" style="margin-bottom:10px">基差 = 指数 − 期货；年化 = 基差/指数 × 365/剩余天数。正基差为贴水。表为 IC + IM（同截图字段）。</div>
+  <div class="basis-wrap"><table class="basis">
+    <thead><tr><th>合约</th><th>价格</th><th>涨跌幅</th><th>涨跌额</th><th>天数</th><th>基差</th><th>年化</th></tr></thead>
+    <tbody id="basisTb"></tbody>
+  </table></div>
+  <div class="note" id="basisFoot"></div>
+</section>
 
 <script>
 const FALLBACK = {
-  asOf: '2026-11-05 10:02 Asia/Shanghai',
-  idx: {name:'中证1000', last:6680.53, chg:168.73, pct:2.59},
-  im: {last:6619.8, bid:0, ask:0, open:0, high:0, low:0, settle:0, time:''},
-  atm: 6600, iv: 0.35, chain: {}
+  asOf:'2026-11-05 10:02 Asia/Shanghai',
+  idx:{name:'中证1000',last:6680.53,chg:168.73,pct:2.59},
+  im:{last:6619.8,bid:0,ask:0,open:0,high:0,low:0,settle:0,time:''},
+  atm:6600,iv:0.35,chain:{}
 };
 let mode='3', snap=JSON.parse(JSON.stringify(FALLBACK)), live=false;
+let basisData={idx:{},fut:{},time:'',live:false};
 const fee=16.5, mult=100;
 const STRIKE_OFFS=[-500,-400,-300,-200,-100,0,100,200,300,400,500,600,700,800];
-function yen(n){const neg=n<0; const s=Math.round(Math.abs(n)).toLocaleString('en-US'); return (neg?'-':'')+'¥'+s;}
+const EXP={'2611':'2026-11-20','2612':'2026-12-18','2703':'2027-03-19','2706':'2027-06-18'};
+const GROUPS=[
+  {key:'IC',label:'500 IC',idx:'s_sh000905',months:['2611','2612','2703','2706']},
+  {key:'IM',label:'1000 IM',idx:'s_sh000852',months:['2611','2612','2703','2706']},
+];
+let timer=null;
+
+function yen(n){const neg=n<0;const s=Math.round(Math.abs(n)).toLocaleString('en-US');return (neg?'-':'')+'¥'+s;}
 function fmt(n,d=1){if(n==null||isNaN(n)||n===0) return '—'; return (+n).toFixed(d);}
-function setMode(m){mode=m;document.getElementById('b3').classList.toggle('on',m==='3');document.getElementById('b4').classList.toggle('on',m==='4');render();}
+function fmt2(n,d=2){if(n==null||isNaN(n)) return '—'; return (+n).toFixed(d);}
+function setMode(m){mode=m;document.getElementById('b3').classList.toggle('on',m==='3');document.getElementById('b4').classList.toggle('on',m==='4');renderStrat();}
 document.getElementById('b3').onclick=()=>setMode('3');
 document.getElementById('b4').onclick=()=>setMode('4');
-document.getElementById('btn').onclick=()=>pull();
+document.getElementById('btn').onclick=()=>manualRefresh();
+document.getElementById('tabStrat').onclick=()=>showTab('strat');
+document.getElementById('tabBasis').onclick=()=>showTab('basis');
+
+function showTab(name){
+  const s=name==='strat';
+  document.getElementById('tabStrat').classList.toggle('on',s);
+  document.getElementById('tabBasis').classList.toggle('on',!s);
+  document.getElementById('panelStrat').classList.toggle('on',s);
+  document.getElementById('panelBasis').classList.toggle('on',!s);
+  location.hash=s?'strat':'basis';
+}
+if(location.hash==='#basis') showTab('basis');
+
+function shanghaiNow(){
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date());
+  const g={}; for(const p of parts) if(p.type!=='literal') g[p.type]=p.value;
+  const hour=+g.hour%24, minute=+g.minute, second=+g.second;
+  const mins=hour*60+minute;
+  const wd=g.weekday; // Sun Mon ...
+  const weekday=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(wd);
+  return {hour,minute,second,mins,weekday,label:`${g.year}-${g.month}-${g.day} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:${String(second).padStart(2,'0')}`};
+}
+/** CFFEX equity index futures: 09:30-11:30, 13:00-15:00; auction 09:25-09:30; no night session. */
+function sessionMode(){
+  const t=shanghaiNow();
+  if(t.weekday===0||t.weekday===6) return {mode:'off', reason:'周末休市', t};
+  if(t.mins>=9*60 && t.mins<9*60+30) return {mode:'index', reason:'9:00–9:30 仅刷指数', t};
+  if((t.mins>=9*60+30 && t.mins<11*60+30) || (t.mins>=13*60 && t.mins<15*60)) return {mode:'full', reason:'交易时段全量刷新', t};
+  // include auction briefly as full-ish for futures? user said non-trading no update; auction is pre-open — treat 9:25-9:30 as index-only already covered by 9:00-9:30
+  return {mode:'off', reason:'非交易时段，暂停自动刷新', t};
+}
+
 function parseOpt(s){if(!s) return null; const p=s.split(','); return {bvol:+p[0]||0,bid:+p[1]||0,last:+p[2]||0,ask:+p[3]||0,svol:+p[4]||0};}
 function parseFut(s){if(!s) return null; const p=s.split(',');
-  return {open:+p[0]||0,high:+p[1]||0,low:+p[2]||0,last:+p[3]||0,settle:+p[14]||0,bid:+p[16]||0,ask:+p[26]||0,time:((p[36]||'')+' '+(p[37]||'')).trim()};}
+  return {open:+p[0]||0,high:+p[1]||0,low:+p[2]||0,last:+p[3]||0,settle:+p[14]||0,prev:+p[14]||0,bid:+p[16]||0,ask:+p[26]||0,time:((p[36]||'')+' '+(p[37]||'')).trim()};}
 function parseIdx(s){if(!s) return null; const p=s.split(','); return {name:p[0], last:+p[1]||0, chg:+p[2]||0, pct:+p[3]||0};}
 function getOpt(cp,k){return (snap.chain&&snap.chain[(cp==='P'?'P':'C')+k])||null;}
+function daysLeft(code){
+  const exp=EXP[code]; if(!exp) return 0;
+  const t=shanghaiNow();
+  const e=new Date(exp+'T15:00:00+08:00');
+  const now=new Date();
+  return Math.max(0, Math.ceil((e-now)/86400000));
+}
+
 function compute(){
   const atm=snap.atm;
   const sp=getOpt('P',atm-100)||{bid:0,ask:0};
@@ -122,9 +181,16 @@ function usedStrike(k,c){
   if(mode==='3') return [c.atm-100,c.atm-500,c.atm+300].includes(k);
   return [c.atm-100,c.atm-500,c.atm+400,c.atm+800].includes(k);
 }
-function render(){
+
+function setStatus(extra){
+  const sess=sessionMode();
+  const src=live?'实时':'缓存';
+  document.getElementById('status').textContent=`${src} · ${snap.asOf||sess.t.label} · ${sess.reason}${extra?(' · '+extra):''}`;
+}
+
+function renderStrat(){
   const c=compute(); const idx=snap.idx||{}; const im=snap.im||{};
-  document.getElementById('status').textContent=(live?'实时 · ':'缓存 · ')+(snap.asOf||im.time||'');
+  setStatus();
   const chgCls=(idx.pct||0)>=0?'up':'down';
   document.getElementById('mkt').innerHTML=`
     <div class="card"><div class="k">${idx.name||'中证1000'}</div><div class="v">${fmt(idx.last,2)}</div>
@@ -149,9 +215,7 @@ function render(){
   document.getElementById('chainCard').innerHTML=`
     <h2>期权链 MO2611</h2>
     <div class="tiny">围绕 ATM；蓝色为策略腿。左 Put · 右 Call</div>
-    <div class="scrollx"><table class="chain">
-      <thead><tr><th>行权价</th><th>P买</th><th>P最新</th><th>P卖</th><th>C买</th><th>C最新</th><th>C卖</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+    <div class="scrollx"><table class="chain"><thead><tr><th>行权价</th><th>P买</th><th>P最新</th><th>P卖</th><th>C买</th><th>C最新</th><th>C卖</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   document.getElementById('trigMetrics').innerHTML=`
     <div class="card"><div class="k">已满足</div><div class="v win">${c.passed}</div></div>
     <div class="card"><div class="k">未核实</div><div class="v warn">${c.blocked}</div></div>
@@ -159,71 +223,136 @@ function render(){
   document.getElementById('trigCard').innerHTML=`
     <div class="k">开仓条件</div>
     <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>IV &gt; 25%</span><span class="pill ok">已过</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>剩余交易日 &gt; 5</span><span class="pill ok">已过</span></div><div class="note">MO2611 → 2026-11-20（约 11 个交易日）</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>剩余交易日 &gt; 5</span><span class="pill ok">已过</span></div><div class="note">MO2611 → 2026-11-20</div></div>
     <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>近月盘口正常</span><span class="pill ok">已过</span></div></div>
-    <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV 连续两小时下行</span><span class="pill bad">未核实</span></div><div class="note">需要连续小时 IV</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>当月未触发止盈封锁</span><span class="pill wait">待确认</span></div><div class="note">告诉我你的持仓后可算</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV 连续两小时下行</span><span class="pill bad">未核实</span></div></div>
+    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>当月未触发止盈封锁</span><span class="pill wait">待确认</span></div></div>
     <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>叠加组数 &lt; 3</span><span class="pill wait">待确认</span></div></div>
     <div class="note"><strong>结论：</strong>6 条里过了 3 条，严格规则下还不能算开仓信号。</div>`;
   if(mode==='3'){
     document.getElementById('pnl').innerHTML=`
-      <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin3)}</div><div class="note">保留全部权利金 ${c.credit3.toFixed(1)} 点</div></div>
-      <div class="card"><div class="k">下行最差</div><div class="v loss">${yen(c.maxLossDown)}</div><div class="note">400 点 put 翼 − 权利金</div></div>
-      <div class="card"><div class="k">上行最差</div><div class="v loss">不封顶</div><div class="note">三腿无保护 call</div></div>`;
+      <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin3)}</div><div class="note">权利金 ${c.credit3.toFixed(1)} 点</div></div>
+      <div class="card"><div class="k">下行最差</div><div class="v loss">${yen(c.maxLossDown)}</div></div>
+      <div class="card"><div class="k">上行最差</div><div class="v loss">不封顶</div></div>`;
   } else {
     document.getElementById('pnl').innerHTML=`
       <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin4)}</div><div class="note">权利金 ${c.credit4.toFixed(1)} 点</div></div>
-      <div class="card"><div class="k">两侧最差</div><div class="v loss">${yen(c.maxLoss4)}</div><div class="note">400 点翼 − 权利金（封顶）</div></div>`;
+      <div class="card"><div class="k">两侧最差</div><div class="v loss">${yen(c.maxLoss4)}</div></div>`;
   }
   document.getElementById('legs').innerHTML=`
     <div class="k">结构 · IM ${fmt(im.last,1)} · ATM ${c.atm}</div>
-    <div class="row"><span>卖 P${c.atm-100}</span><span>${fmt(c.sp.bid,1)} × ${c.sp.bvol||0}</span></div>
-    <div class="row"><span>买 P${c.atm-500}</span><span>${fmt(c.lp.ask,1)} × ${c.lp.svol||0}</span></div>
+    <div class="row"><span>卖 P${c.atm-100}</span><span>${fmt(c.sp.bid,1)}</span></div>
+    <div class="row"><span>买 P${c.atm-500}</span><span>${fmt(c.lp.ask,1)}</span></div>
     <div class="row"><span>${mode==='3'?'卖 C'+(c.atm+300):'卖 C'+(c.atm+400)}</span><span>${fmt((mode==='3'?c.sc3:c.sc4).bid,1)}</span></div>
     ${mode==='4'?`<div class="row"><span>买 C${c.atm+800}</span><span>${fmt(c.lc4.ask,1)}</span></div>`:''}
     <div class="row"><span>保守权利金</span><strong>${(mode==='3'?c.credit3:c.credit4).toFixed(1)} 点</strong></div>`;
 }
-function seedFallbackChain(){
-  const base={
-    P6500:{bvol:7,bid:137.8,last:137.6,ask:138.6,svol:2},
-    P6100:{bvol:10,bid:38.4,last:38.6,ask:38.6,svol:6},
-    C6900:{bvol:15,bid:79.0,last:80.2,ask:80.2,svol:4},
-    C7000:{bvol:3,bid:57.2,last:57.4,ask:57.6,svol:11},
-    C7400:{bvol:18,bid:12.8,last:13.2,ask:13.0,svol:1},
-  };
-  FALLBACK.chain=base; snap.chain=JSON.parse(JSON.stringify(base));
+
+function renderBasis(){
+  let html='', asOf=basisData.time||'';
+  for(const g of GROUPS){
+    const idx=basisData.idx[g.idx]; if(!idx) continue;
+    html+=`<tr class="group"><td colspan="7">${g.label}　${fmt2(idx.last,2)}　<span class="${idx.pct>=0?'pos':'neg'}">${idx.pct>=0?'+':''}${fmt2(idx.pct,2)}%</span>　<span class="${idx.chg>=0?'pos':'neg'}">${idx.chg>=0?'+':''}${fmt2(idx.chg,2)}</span></td></tr>`;
+    g.months.forEach((m,i)=>{
+      const f=basisData.fut['nf_'+g.key+m]; if(!f) return;
+      const d=daysLeft(m);
+      const basis=idx.last-f.last;
+      const ann=d>0?(basis/idx.last)*(365/d)*100:0;
+      const base=f.prev||f.open||f.last;
+      const chg=f.last-base; const chgp=base?chg/base*100:0;
+      html+=`<tr class="${i===0?'front':''}"><td><span class="code">${g.key+m}</span></td>
+        <td>${fmt2(f.last,1)}</td>
+        <td class="${chgp>=0?'pos':'neg'}">${chgp>=0?'+':''}${fmt2(chgp,2)}%</td>
+        <td class="${chg>=0?'pos':'neg'}">${chg>=0?'+':''}${fmt2(chg,2)}</td>
+        <td>${d}</td><td class="strong">${fmt2(basis,2)}</td><td class="strong">${fmt2(ann,2)}%</td></tr>`;
+    });
+  }
+  document.getElementById('basisTb').innerHTML=html||'<tr><td colspan="7">暂无数据</td></tr>';
+  document.getElementById('basisFoot').textContent='到期按第三周五：2611=2026-11-20，2612=2026-12-18，2703=2027-03-19，2706=2027-06-18。';
+  setStatus();
 }
-seedFallbackChain();
-function pull(){
-  document.getElementById('status').textContent='刷新中…';
+
+function loadScript(list){
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://hq.sinajs.cn/list='+list.join(',')+'&_='+Date.now();
+    s.charset='gbk';
+    s.onload=()=>{resolve(); s.remove();};
+    s.onerror=()=>{reject(new Error('blocked')); s.remove();};
+    document.body.appendChild(s);
+  });
+}
+
+async function pullIndexOnly(){
+  await loadScript(['s_sh000852','s_sh000905']);
+  const i1000=parseIdx(window.hq_str_s_sh000852||'');
+  const i500=parseIdx(window.hq_str_s_sh000905||'');
+  if(i1000) snap.idx=i1000;
+  snap.asOf=shanghaiNow().label+'（指数）';
+  live=true;
+  basisData.idx['s_sh000852']=i1000||basisData.idx['s_sh000852'];
+  basisData.idx['s_sh000905']=i500||basisData.idx['s_sh000905'];
+  basisData.time=snap.asOf; basisData.live=true;
+  renderStrat(); renderBasis();
+}
+
+async function pullFull(){
   const guess=snap.atm||6600; const strikes=[];
   for(let k=guess-600;k<=guess+900;k+=100) strikes.push(k);
   const opts=[]; for(const k of strikes){ opts.push('P_OP_mo2611P'+k,'P_OP_mo2611C'+k); }
-  const list=['s_sh000852','nf_IM2611'].concat(opts).join(',');
-  const s=document.createElement('script');
-  s.src='https://hq.sinajs.cn/list='+list+'&_='+Date.now(); s.charset='gbk';
-  s.onload=()=>{
-    try{
-      const idx=parseIdx(window.hq_str_s_sh000852||'');
-      const im=parseFut(window.hq_str_nf_IM2611||'');
-      const last=im&&im.last?im.last:(idx&&idx.last?idx.last:6600);
-      const atm=Math.round(last/100)*100; const chain={};
-      for(const off of STRIKE_OFFS){
-        const k=atm+off;
-        const p=parseOpt(window['hq_str_P_OP_mo2611P'+k]);
-        const c=parseOpt(window['hq_str_P_OP_mo2611C'+k]);
-        if(p) chain['P'+k]=p; if(c) chain['C'+k]=c;
-      }
-      snap={asOf:(im&&im.time)||new Date().toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),
-        idx:idx||snap.idx, im:im||snap.im, atm, iv:snap.iv, chain};
-      live=true; render();
-    }catch(e){ document.getElementById('status').textContent='实时失败，显示缓存'; live=false; render(); }
-    s.remove();
-  };
-  s.onerror=()=>{ document.getElementById('status').textContent='实时被拦，显示缓存'; live=false; render(); s.remove(); };
-  document.body.appendChild(s);
+  const list=['s_sh000852','s_sh000905','nf_IM2611'];
+  for(const g of GROUPS) for(const m of g.months) list.push('nf_'+g.key+m);
+  list.push(...opts);
+  await loadScript(list);
+  const idx=parseIdx(window.hq_str_s_sh000852||'');
+  const im=parseFut(window.hq_str_nf_IM2611||'');
+  const last=im&&im.last?im.last:(idx&&idx.last?idx.last:6600);
+  const atm=Math.round(last/100)*100; const chain={};
+  for(const off of STRIKE_OFFS){
+    const k=atm+off;
+    const p=parseOpt(window['hq_str_P_OP_mo2611P'+k]);
+    const c=parseOpt(window['hq_str_P_OP_mo2611C'+k]);
+    if(p) chain['P'+k]=p; if(c) chain['C'+k]=c;
+  }
+  snap={asOf:(im&&im.time)||shanghaiNow().label, idx:idx||snap.idx, im:im||snap.im, atm, iv:snap.iv, chain};
+  live=true;
+  const bIdx={}, bFut={}; let time='';
+  for(const g of GROUPS){
+    bIdx[g.idx]=parseIdx(window['hq_str_'+g.idx]||'');
+    for(const m of g.months){
+      const key='nf_'+g.key+m; const f=parseFut(window['hq_str_'+key]||'');
+      if(f){ bFut[key]=f; if(f.time) time=f.time; }
+    }
+  }
+  basisData={idx:bIdx,fut:bFut,time,live:true};
+  renderStrat(); renderBasis();
 }
-render(); pull(); setInterval(pull, 300000);
+
+async function smartRefresh(forceFull){
+  const sess=sessionMode();
+  try{
+    if(forceFull || sess.mode==='full') await pullFull();
+    else if(sess.mode==='index') await pullIndexOnly();
+    else { setStatus('点刷新可强制拉取'); renderStrat(); renderBasis(); }
+  }catch(e){
+    live=false;
+    document.getElementById('status').textContent='拉取失败 · '+sess.reason;
+    renderStrat(); renderBasis();
+  }
+}
+function manualRefresh(){ smartRefresh(true); }
+
+function seedFallbackChain(){
+  const base={P6500:{bvol:7,bid:137.8,last:137.6,ask:138.6,svol:2},P6100:{bvol:10,bid:38.4,last:38.6,ask:38.6,svol:6},C6900:{bvol:15,bid:79.0,last:80.2,ask:80.2,svol:4},C7000:{bvol:3,bid:57.2,last:57.4,ask:57.6,svol:11},C7400:{bvol:18,bid:12.8,last:13.2,ask:13.0,svol:1}};
+  FALLBACK.chain=base; snap.chain=JSON.parse(JSON.stringify(base));
+}
+seedFallbackChain();
+renderStrat(); renderBasis();
+smartRefresh(false);
+if(timer) clearInterval(timer);
+timer=setInterval(()=>{ const s=sessionMode(); if(s.mode!=='off') smartRefresh(false); else setStatus(); }, 300000);
+// also re-check session label every minute without fetching
+setInterval(()=>{ if(sessionMode().mode==='off') setStatus(); }, 60000);
 </script>
 </body>
 </html>
