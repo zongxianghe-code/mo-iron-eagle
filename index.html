@@ -10,15 +10,15 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611061027"/>
+<link rel="manifest" href="manifest.json?v=202611061047"/>
 <style>
-:root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740}
+:root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);padding:16px;padding-bottom:64px}
 h1{font-size:22px;margin:0 0 4px}
 .sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 8px}
 .tabs{display:flex;gap:8px;margin:0 0 12px}
-.tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px;font-weight:600}
+.tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px 8px;font-size:14px;font-weight:600}
 .tabs button.on{background:var(--accent);color:#041018;border:0}
 .seg{display:flex;gap:8px;margin:0 0 14px}
 .seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:12px;font-size:15px}
@@ -26,12 +26,13 @@ h1{font-size:22px;margin:0 0 4px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 .k{color:var(--muted);font-size:12px}
 .v{font-size:clamp(22px,7vw,34px);font-weight:750;margin-top:6px;overflow-wrap:anywhere;line-height:1.15}
-.win{color:var(--win)}.loss{color:var(--loss)}.warn{color:var(--warn)}
+.win{color:var(--win)}.loss{color:var(--loss)}.warn{color:var(--warn)}.sug{color:var(--sug)}
 .metrics{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px}
 @media (min-width:420px){.metrics{grid-template-columns:1fr 1fr 1fr}}
 .metrics .card{margin:0}
 .row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
 .row:last-child{border:0}
+.row.suggest span:first-child,.row.suggest strong{color:var(--sug);font-weight:700}
 .note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
 .pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px}
 .ok{background:#123528;color:var(--win)}.bad{background:#3a1d24;color:var(--loss)}.wait{background:#3a2a12;color:var(--warn)}
@@ -52,7 +53,7 @@ table.chain th,table.chain td,table.basis th,table.basis td{padding:8px 4px;bord
 table.chain th:first-child,table.chain td:first-child,table.basis th:first-child,table.basis td:first-child{text-align:left}
 table.chain th,table.basis th{color:var(--muted);font-weight:600}
 table.chain tr.atm td{background:#1c2b44;font-weight:700}
-table.chain tr.used td{color:var(--accent)}
+table.chain td.sug-p,table.chain td.sug-c{color:var(--sug);font-weight:700;background:rgba(240,113,120,.12)}
 table.basis tr.group td{background:var(--head);color:var(--accent);font-weight:700;text-align:left}
 table.basis tr.front .code{background:var(--blue);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700}
 table.basis .strong{font-weight:700;color:#fff}
@@ -60,6 +61,8 @@ table.basis .strong{font-weight:700;color:#fff}
 h2{font-size:15px;margin:0 0 8px;font-weight:700}
 .panel{display:none}.panel.on{display:block}
 .basis-wrap{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;overflow-x:auto}
+.tag{display:inline-block;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700;background:rgba(240,113,120,.18);color:var(--sug);margin-left:4px}
+svg.payoff{width:100%;height:auto;display:block;background:#0f1828;border-radius:12px}
 </style>
 </head>
 <body>
@@ -68,6 +71,7 @@ h2{font-size:15px;margin:0 0 8px;font-weight:700}
 <div class="tabs">
   <button type="button" id="tabStrat" class="on">策略盘口</button>
   <button type="button" id="tabBasis">贴水年化</button>
+  <button type="button" id="tabPos">现有持仓</button>
 </div>
 <div class="status" id="status">加载中…</div>
 <button class="refresh" id="btn" type="button">刷新</button>
@@ -97,6 +101,16 @@ h2{font-size:15px;margin:0 0 8px;font-weight:700}
   <div class="note" id="basisFoot"></div>
 </section>
 
+<section class="panel" id="panelPos">
+  <div class="card" id="posSummary"></div>
+  <div class="card" id="posLegs"></div>
+  <div class="card">
+    <h2>到期收益曲线（¥）</h2>
+    <div id="posChart"></div>
+    <div class="note" id="posChartNote"></div>
+  </div>
+</section>
+
 <script>
 const FALLBACK = {
   asOf:'2026-11-05 10:02 Asia/Shanghai',
@@ -113,6 +127,17 @@ const GROUPS=[
   {key:'IC',label:'500 IC',idx:'s_sh000905',months:['2611','2612','2703','2706']},
   {key:'IM',label:'1000 IM',idx:'s_sh000852',months:['2611','2612','2703','2706']},
 ];
+/** 现有持仓（用户成交价，勿改） MO2611 */
+const POSITION={
+  code:'MO2611', exp:'2026-11-20', mult:100, feePerLeg:16.5,
+  legs:[
+    {side:'short', cp:'C', strike:6800, qty:2, entry:89.5},
+    {side:'long',  cp:'P', strike:6000, qty:1, entry:49.2},
+    {side:'long',  cp:'P', strike:6100, qty:1, entry:44.6},
+    {side:'short', cp:'P', strike:6400, qty:1, entry:141.6},
+    {side:'short', cp:'P', strike:6500, qty:1, entry:197.6},
+  ]
+};
 let timer=null;
 
 function yen(n){const neg=n<0;const s=Math.round(Math.abs(n)).toLocaleString('en-US');return (neg?'-':'')+'¥'+s;}
@@ -124,23 +149,31 @@ document.getElementById('b4').onclick=()=>setMode('4');
 document.getElementById('btn').onclick=()=>manualRefresh();
 document.getElementById('tabStrat').onclick=()=>showTab('strat');
 document.getElementById('tabBasis').onclick=()=>showTab('basis');
+document.getElementById('tabPos').onclick=()=>showTab('pos');
 
 function showTab(name){
-  const s=name==='strat';
-  document.getElementById('tabStrat').classList.toggle('on',s);
-  document.getElementById('tabBasis').classList.toggle('on',!s);
-  document.getElementById('panelStrat').classList.toggle('on',s);
-  document.getElementById('panelBasis').classList.toggle('on',!s);
-  location.hash=s?'strat':'basis';
+  const map={strat:['tabStrat','panelStrat'],basis:['tabBasis','panelBasis'],pos:['tabPos','panelPos']};
+  if(!map[name]) name='strat';
+  for(const k of Object.keys(map)){
+    const on=k===name;
+    document.getElementById(map[k][0]).classList.toggle('on',on);
+    document.getElementById(map[k][1]).classList.toggle('on',on);
+  }
+  location.hash=name==='strat'?'strat':name;
+  if(name==='pos') renderPos();
 }
-if(location.hash==='#basis') showTab('basis');
+(function initHash(){
+  const h=(location.hash||'').replace('#','');
+  if(h==='basis') showTab('basis');
+  else if(h==='pos'||h==='hold') showTab('pos');
+})();
 
 function shanghaiNow(){
   const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date());
   const g={}; for(const p of parts) if(p.type!=='literal') g[p.type]=p.value;
   const hour=+g.hour%24, minute=+g.minute, second=+g.second;
   const mins=hour*60+minute;
-  const wd=g.weekday; // Sun Mon ...
+  const wd=g.weekday;
   const weekday=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(wd);
   return {hour,minute,second,mins,weekday,label:`${g.year}-${g.month}-${g.day} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:${String(second).padStart(2,'0')}`};
 }
@@ -150,7 +183,6 @@ function sessionMode(){
   if(t.weekday===0||t.weekday===6) return {mode:'off', reason:'周末休市', t};
   if(t.mins>=9*60 && t.mins<9*60+30) return {mode:'index', reason:'9:00–9:30 仅刷指数', t};
   if((t.mins>=9*60+30 && t.mins<11*60+30) || (t.mins>=13*60 && t.mins<15*60)) return {mode:'full', reason:'交易时段全量刷新', t};
-  // include auction briefly as full-ish for futures? user said non-trading no update; auction is pre-open — treat 9:25-9:30 as index-only already covered by 9:00-9:30
   return {mode:'off', reason:'非交易时段，暂停自动刷新', t};
 }
 
@@ -161,10 +193,28 @@ function parseIdx(s){if(!s) return null; const p=s.split(','); return {name:p[0]
 function getOpt(cp,k){return (snap.chain&&snap.chain[(cp==='P'?'P':'C')+k])||null;}
 function daysLeft(code){
   const exp=EXP[code]; if(!exp) return 0;
-  const t=shanghaiNow();
   const e=new Date(exp+'T15:00:00+08:00');
   const now=new Date();
   return Math.max(0, Math.ceil((e-now)/86400000));
+}
+
+function suggestLegs(c){
+  if(mode==='3'){
+    return [
+      {side:'short',cp:'P',k:c.atm-100,px:c.sp.bid,label:'卖 Put'},
+      {side:'long', cp:'P',k:c.atm-500,px:c.lp.ask,label:'买 Put'},
+      {side:'short',cp:'C',k:c.atm+300,px:c.sc3.bid,label:'卖 Call'},
+    ];
+  }
+  return [
+    {side:'short',cp:'P',k:c.atm-100,px:c.sp.bid,label:'卖 Put'},
+    {side:'long', cp:'P',k:c.atm-500,px:c.lp.ask,label:'买 Put'},
+    {side:'short',cp:'C',k:c.atm+400,px:c.sc4.bid,label:'卖 Call'},
+    {side:'long', cp:'C',k:c.atm+800,px:c.lc4.ask,label:'买 Call'},
+  ];
+}
+function isSug(cp,k,c){
+  return suggestLegs(c).some(L=>L.cp===cp && L.k===k);
 }
 
 function compute(){
@@ -179,11 +229,14 @@ function compute(){
   const maxWin3=credit3*mult-3*fee, maxLossDown=(400-credit3)*mult+3*fee;
   const maxWin4=credit4*mult-4*fee, maxLoss4=(400-credit4)*mult+4*fee;
   const ivOk=snap.iv>0.25;
-  return {atm,sp,lp,sc3,sc4,lc4,credit3,credit4,maxWin3,maxLossDown,maxWin4,maxLoss4,ivOk,passed:(ivOk?1:0)+2,blocked:1,waiting:2};
-}
-function usedStrike(k,c){
-  if(mode==='3') return [c.atm-100,c.atm-500,c.atm+300].includes(k);
-  return [c.atm-100,c.atm-500,c.atm+400,c.atm+800].includes(k);
+  const days=daysLeft('2611');
+  const daysOk=days>5;
+  const bookOk=true;
+  const ivDropChecked=false; // 未核实
+  const passed=(ivOk?1:0)+(daysOk?1:0)+(bookOk?1:0);
+  const blocked=ivDropChecked?0:1;
+  const waiting=0;
+  return {atm,sp,lp,sc3,sc4,lc4,credit3,credit4,maxWin3,maxLossDown,maxWin4,maxLoss4,ivOk,days,daysOk,bookOk,ivDropChecked,passed,blocked,waiting};
 }
 
 function setStatus(extra){
@@ -211,28 +264,39 @@ function renderStrat(){
   let rows='';
   for(const off of STRIKE_OFFS){
     const k=c.atm+off; const p=getOpt('P',k), call=getOpt('C',k);
-    const cls=(k===c.atm?'atm':'')+(usedStrike(k,c)?' used':'');
-    rows+=`<tr class="${cls}"><td>${k}${k===c.atm?' ★':''}</td>
-      <td>${p?fmt(p.bid,1):'—'}</td><td>${p?fmt(p.last,1):'—'}</td><td>${p?fmt(p.ask,1):'—'}</td>
-      <td>${call?fmt(call.bid,1):'—'}</td><td>${call?fmt(call.last,1):'—'}</td><td>${call?fmt(call.ask,1):'—'}</td></tr>`;
+    const cls=k===c.atm?'atm':'';
+    const pCls=isSug('P',k,c)?'sug-p':'';
+    const cCls=isSug('C',k,c)?'sug-c':'';
+    const pTag=isSug('P',k,c)?(suggestLegs(c).find(L=>L.cp==='P'&&L.k===k).side==='short'?' 卖P':' 买P'):'';
+    const cTag=isSug('C',k,c)?(suggestLegs(c).find(L=>L.cp==='C'&&L.k===k).side==='short'?' 卖C':' 买C'):'';
+    rows+=`<tr class="${cls}"><td>${k}${k===c.atm?' ★':''}${pTag||cTag?`<span class="tag">${[pTag,cTag].filter(Boolean).join(' · ').trim()}</span>`:''}</td>
+      <td class="${pCls}">${p?fmt(p.bid,1):'—'}</td><td class="${pCls}">${p?fmt(p.last,1):'—'}</td><td class="${pCls}">${p?fmt(p.ask,1):'—'}</td>
+      <td class="${cCls}">${call?fmt(call.bid,1):'—'}</td><td class="${cCls}">${call?fmt(call.last,1):'—'}</td><td class="${cCls}">${call?fmt(call.ask,1):'—'}</td></tr>`;
   }
   document.getElementById('chainCard').innerHTML=`
     <h2>期权链 MO2611</h2>
-    <div class="tiny">围绕 ATM；蓝色为策略腿。左 Put · 右 Call</div>
+    <div class="tiny">围绕 ATM；<span class="sug">红色</span>为建议开仓腿（注明 买/卖 · Call/Put）。左 Put · 右 Call</div>
     <div class="scrollx"><table class="chain"><thead><tr><th>行权价</th><th>P买</th><th>P最新</th><th>P卖</th><th>C买</th><th>C最新</th><th>C卖</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   document.getElementById('trigMetrics').innerHTML=`
     <div class="card"><div class="k">已满足</div><div class="v win">${c.passed}</div></div>
     <div class="card"><div class="k">未核实</div><div class="v warn">${c.blocked}</div></div>
     <div class="card"><div class="k">待确认</div><div class="v warn">${c.waiting}</div></div>`;
+  const ivPill=c.ivOk?'ok':'bad', ivDot=c.ivOk?'ok':'bad', ivTxt=c.ivOk?'已过':'未过';
+  const dPill=c.daysOk?'ok':'bad', dDot=c.daysOk?'ok':'bad', dTxt=c.daysOk?'已过':'未过';
+  let conclusion;
+  if(c.ivOk && c.daysOk && c.bookOk){
+    conclusion=`实时 4 条里过了 ${c.passed} 条（IV / 剩余日 / 盘口）。IV 连降尚未核实，接近可开仓，但不宜当作完整信号。`;
+  } else {
+    conclusion=`实时 4 条里过了 ${c.passed} 条，核心条件未齐，暂不算开仓信号。`;
+  }
   document.getElementById('trigCard').innerHTML=`
-    <div class="k">开仓条件</div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>IV &gt; 25%</span><span class="pill ok">已过</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>剩余交易日 &gt; 5</span><span class="pill ok">已过</span></div><div class="note">MO2611 → 2026-11-20</div></div>
+    <div class="k">开仓条件（实时）</div>
+    <div class="trig"><div class="trig-head"><span class="dot ${ivDot}"></span><span>IV &gt; 25%</span><span class="pill ${ivPill}">${ivTxt}</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ${dDot}"></span><span>剩余交易日 &gt; 5</span><span class="pill ${dPill}">${dTxt}</span></div><div class="note">MO2611 → 2026-11-20 · 约 ${c.days} 天</div></div>
     <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>近月盘口正常</span><span class="pill ok">已过</span></div></div>
     <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV 连续两小时下行</span><span class="pill bad">未核实</span></div></div>
-    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>当月未触发止盈封锁</span><span class="pill wait">待确认</span></div></div>
-    <div class="trig"><div class="trig-head"><span class="dot wait"></span><span>叠加组数 &lt; 3</span><span class="pill wait">待确认</span></div></div>
-    <div class="note"><strong>结论：</strong>6 条里过了 3 条，严格规则下还不能算开仓信号。</div>`;
+    <div class="note"><strong>结论：</strong>${conclusion}</div>
+    <div class="note">止盈封锁 / 叠加组数仅回测使用，实时跟进不计。</div>`;
   if(mode==='3'){
     document.getElementById('pnl').innerHTML=`
       <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin3)}</div><div class="note">权利金 ${c.credit3.toFixed(1)} 点</div></div>
@@ -243,12 +307,10 @@ function renderStrat(){
       <div class="card"><div class="k">最多能赚</div><div class="v win">${yen(c.maxWin4)}</div><div class="note">权利金 ${c.credit4.toFixed(1)} 点</div></div>
       <div class="card"><div class="k">两侧最差</div><div class="v loss">${yen(c.maxLoss4)}</div></div>`;
   }
+  const legs=suggestLegs(c);
   document.getElementById('legs').innerHTML=`
-    <div class="k">结构 · IM ${fmt(im.last,1)} · ATM ${c.atm}</div>
-    <div class="row"><span>卖 P${c.atm-100}</span><span>${fmt(c.sp.bid,1)}</span></div>
-    <div class="row"><span>买 P${c.atm-500}</span><span>${fmt(c.lp.ask,1)}</span></div>
-    <div class="row"><span>${mode==='3'?'卖 C'+(c.atm+300):'卖 C'+(c.atm+400)}</span><span>${fmt((mode==='3'?c.sc3:c.sc4).bid,1)}</span></div>
-    ${mode==='4'?`<div class="row"><span>买 C${c.atm+800}</span><span>${fmt(c.lc4.ask,1)}</span></div>`:''}
+    <div class="k">建议结构 · IM ${fmt(im.last,1)} · ATM ${c.atm} <span class="tag">红字=建议开仓</span></div>
+    ${legs.map(L=>`<div class="row suggest"><span>${L.label} ${L.k} <span class="tiny">(${L.side==='short'?'short':'long'} ${L.cp==='C'?'Call':'Put'})</span></span><span>${fmt(L.px,1)}</span></div>`).join('')}
     <div class="row"><span>保守权利金</span><strong>${(mode==='3'?c.credit3:c.credit4).toFixed(1)} 点</strong></div>`;
 }
 
@@ -276,6 +338,104 @@ function renderBasis(){
   setStatus();
 }
 
+function markOf(opt){
+  if(!opt) return null;
+  if(opt.last) return opt.last;
+  if(opt.bid&&opt.ask) return (opt.bid+opt.ask)/2;
+  return opt.bid||opt.ask||null;
+}
+function netCreditPts(){
+  let c=0;
+  for(const L of POSITION.legs){
+    c += (L.side==='short'?1:-1)*L.entry*L.qty;
+  }
+  return c;
+}
+function payoffAt(S){
+  // points P&L at expiry (premium already in via entry), then *mult for ¥
+  let pts=0;
+  for(const L of POSITION.legs){
+    const intrinsic = L.cp==='C' ? Math.max(S-L.strike,0) : Math.max(L.strike-S,0);
+    if(L.side==='short') pts += (L.entry - intrinsic)*L.qty;
+    else pts += (intrinsic - L.entry)*L.qty;
+  }
+  return pts*POSITION.mult;
+}
+function renderPos(){
+  const im=snap.im||{};
+  const credit=netCreditPts();
+  const feesOpen=POSITION.legs.reduce((a,L)=>a+L.qty*POSITION.feePerLeg,0);
+  let totalMtm=0, missing=[];
+  const rows=[];
+  for(const L of POSITION.legs){
+    const opt=getOpt(L.cp,L.strike);
+    const mk=markOf(opt);
+    let pnlPts=null, pnlYen=null;
+    if(mk!=null){
+      pnlPts=(L.side==='short'? (L.entry-mk):(mk-L.entry))*L.qty;
+      pnlYen=pnlPts*POSITION.mult;
+      totalMtm+=pnlYen;
+    } else missing.push((L.cp==='C'?'C':'P')+L.strike);
+    const sideZh=L.side==='short'?'卖':'买';
+    const cpZh=L.cp==='C'?'Call':'Put';
+    const cls=pnlYen==null?'':(pnlYen>=0?'win':'loss');
+    rows.push(`<div class="row"><span>${sideZh} ${cpZh} ${L.strike} ×${L.qty}</span>
+      <span>开 ${L.entry.toFixed(1)} · 标 ${mk!=null?mk.toFixed(1):'—'} · <strong class="${cls}">${pnlYen==null?'—':yen(pnlYen)}</strong></span></div>`);
+  }
+  // rough plateau / BE notes
+  const plateauMax=credit*POSITION.mult; // ~42440 before fees
+  const downCap=payoffAt(5600); // deep ITM puts side
+  document.getElementById('posSummary').innerHTML=`
+    <h2>现有持仓 · ${POSITION.code}</h2>
+    <div class="row"><span>到期</span><strong>${POSITION.exp}</strong></div>
+    <div class="row"><span>开仓净权利金</span><strong class="win">${credit.toFixed(1)} 点 ≈ ${yen(credit*POSITION.mult)}</strong></div>
+    <div class="row"><span>手续费（开仓估）</span><span>≈ ${yen(feesOpen)}（${POSITION.feePerLeg}/张 × 张数）</span></div>
+    <div class="row"><span>当前未实现盈亏</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>
+    <div class="row"><span>IM 最新</span><strong>${fmt(im.last,1)}</strong></div>
+    <div class="note">平台约 6500–6800 最大盈利 ≈ ${yen(plateauMax)}（未扣费）；下行 ≤6000 约 ${yen(downCap)}；上行裸卖 2×C6800 不封顶。保证金未实时估算。</div>
+    ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
+  document.getElementById('posLegs').innerHTML=`
+    <div class="k">分腿盯市（优先最新价，否则买卖中价）</div>
+    ${rows.join('')}
+    <div class="row"><span>合计未实现</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>`;
+  document.getElementById('posChart').innerHTML=buildPayoffSvg(im.last||6500);
+  document.getElementById('posChartNote').textContent='横轴标的（估）5600–7600；纵轴到期盈亏（¥，含开仓权利金，未扣手续费）。竖线=当前 IM 最新。';
+}
+function buildPayoffSvg(spot){
+  const x0=5600, x1=7600, step=20;
+  const pts=[];
+  for(let S=x0;S<=x1;S+=step) pts.push([S, payoffAt(S)]);
+  const ys=pts.map(p=>p[1]);
+  const yMin=Math.min(...ys, -50000), yMax=Math.max(...ys, 50000);
+  const W=640, H=320, padL=54, padR=16, padT=16, padB=36;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const X=S=>padL+((S-x0)/(x1-x0))*iw;
+  const Y=v=>padT+((yMax-v)/(yMax-yMin))*ih;
+  let d='';
+  pts.forEach((p,i)=>{ d+=(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)+' '; });
+  const zeroY=Y(0);
+  const sx=Math.max(x0,Math.min(x1,spot));
+  // ticks
+  let xt='', yt='';
+  for(let S=5800;S<=7400;S+=400){
+    xt+=`<line x1="${X(S)}" y1="${padT}" x2="${X(S)}" y2="${padT+ih}" stroke="#2a3a55" stroke-width="1"/>`;
+    xt+=`<text x="${X(S)}" y="${H-10}" fill="#9aa8bf" font-size="11" text-anchor="middle">${S}</text>`;
+  }
+  const yTicks=[yMin,0,yMax];
+  for(const v of yTicks){
+    yt+=`<text x="${padL-6}" y="${Y(v)+4}" fill="#9aa8bf" font-size="11" text-anchor="end">${Math.round(v/1000)}k</text>`;
+  }
+  return `<svg class="payoff" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="${W}" height="${H}" fill="#0f1828"/>
+    ${xt}${yt}
+    <line x1="${padL}" y1="${zeroY}" x2="${padL+iw}" y2="${zeroY}" stroke="#3a4a66" stroke-dasharray="4 4"/>
+    <path d="${d}" fill="none" stroke="#59a5ff" stroke-width="2.5"/>
+    <line x1="${X(sx)}" y1="${padT}" x2="${X(sx)}" y2="${padT+ih}" stroke="#ffb454" stroke-width="1.5" stroke-dasharray="5 3"/>
+    <circle cx="${X(sx)}" cy="${Y(payoffAt(sx))}" r="4" fill="#ffb454"/>
+    <text x="${X(sx)+6}" y="${padT+14}" fill="#ffb454" font-size="11">IM ${(+spot||0).toFixed(0)}</text>
+  </svg>`;
+}
+
 async function pullQuotes(){
   const r=await fetch('quotes.json?_='+Date.now(),{cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
@@ -293,10 +453,10 @@ async function pullQuotes(){
   if(d.basis){
     basisData={idx:d.basis.idx||{},fut:d.basis.fut||{},time:d.basis.time||d.asOf||'',live:true};
   }
-  renderStrat(); renderBasis();
+  renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611061027';
+const APP_VER='202611061047';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
@@ -308,7 +468,7 @@ async function smartRefresh(forceFull){
   }catch(e){
     live=false;
     document.getElementById('status').textContent='拉取失败（'+((e&&e.message)||'error')+'）· 仍显示缓存 '+ (snap.asOf||'');
-    renderStrat(); renderBasis();
+    renderStrat(); renderBasis(); renderPos();
   }finally{
     if(btn){ btn.disabled=false; btn.textContent='刷新'; }
   }
@@ -327,11 +487,10 @@ function seedFallbackChain(){
   FALLBACK.chain=base; snap.chain=JSON.parse(JSON.stringify(base));
 }
 seedFallbackChain();
-renderStrat(); renderBasis();
+renderStrat(); renderBasis(); renderPos();
 smartRefresh(false);
 if(timer) clearInterval(timer);
 timer=setInterval(()=>{ const s=sessionMode(); if(s.mode!=='off') smartRefresh(false); else setStatus(); }, 300000);
-// also re-check session label every minute without fetching
 setInterval(()=>{ if(sessionMode().mode==='off') setStatus(); }, 60000);
 </script>
 </body>
