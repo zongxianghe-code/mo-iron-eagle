@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611121116"/>
+<link rel="manifest" href="manifest.json?v=202611121323"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -385,7 +385,7 @@ function renderPos(){
   const closedQty=CLOSED.reduce((a,T)=>a+T.qty,0);
   const feesEst=(openQty+closedQty*2)*POSITION.feePerLeg; // 剩余腿仅开仓；已平腿开仓+平仓
   const realized=realizedTotal();
-  let totalMtm=0, missing=[];
+  let totalMtm=0, missing=[], liveCredit=0;
   const rows=[];
   for(const L of POSITION.legs){
     const opt=getOpt(L.cp,L.strike);
@@ -395,14 +395,22 @@ function renderPos(){
       pnlPts=(L.side==='short'? (L.entry-mk):(mk-L.entry))*L.qty;
       pnlYen=pnlPts*POSITION.mult;
       totalMtm+=pnlYen;
+      liveCredit += (L.side==='short'?1:-1)*mk*L.qty;
     } else missing.push((L.cp==='C'?'C':'P')+L.strike);
     const sideZh=L.side==='short'?'卖':'买';
     const cpZh=L.cp==='C'?'Call':'Put';
     const cls=pnlYen==null?'':(pnlYen>=0?'win':'loss');
+    const markTxt=mk!=null?`最新 ${mk.toFixed(1)}×${L.qty}=${(mk*L.qty).toFixed(1)}`:'最新 —';
     rows.push(`<div class="row"><span>${sideZh} ${cpZh} ${L.strike} ×${L.qty}</span>
-      <span>开 ${L.entry.toFixed(1)} · 标 ${mk!=null?mk.toFixed(1):'—'} · <strong class="${cls}">${pnlYen==null?'—':yen(pnlYen)}</strong></span></div>`);
+      <span>开 ${L.entry.toFixed(1)} · ${markTxt} · <strong class="${cls}">${pnlYen==null?'—':yen(pnlYen)}</strong></span></div>`);
   }
   const total=realized+totalMtm;
+  const liveOk=!missing.length && POSITION.legs.length>0;
+  const captured=liveOk && credit!==0 ? (credit-liveCredit)/credit : null;
+  const liveCls=liveOk?(liveCredit>=0?'win':'loss'):'';
+  const capCls=captured==null?'':(captured>=0?'win':'loss');
+  const liveTxt=liveOk?`${liveCredit.toFixed(1)} 点 ≈ ${yen(liveCredit*POSITION.mult)}`:'—';
+  const capTxt=captured==null?'—':((captured*100).toFixed(1)+'%');
   const closedRows=CLOSED.map(T=>{
     const pnl=realizedOf(T);
     const cpZh=T.cp==='C'?'Call':'Put';
@@ -415,16 +423,18 @@ function renderPos(){
   document.getElementById('posSummary').innerHTML=`
     <h2>现有持仓 · ${POSITION.code}</h2>
     <div class="row"><span>到期</span><strong>${POSITION.exp}</strong></div>
-    <div class="row"><span>剩余腿净权利金</span><strong class="win">${credit.toFixed(1)} 点 ≈ ${yen(credit*POSITION.mult)}</strong></div>
+    <div class="row"><span>剩余腿净权利金（最新）</span><strong class="${liveCls}">${liveTxt}</strong></div>
+    <div class="row"><span>开仓净收权利金</span><strong class="${credit>=0?'win':'loss'}">${credit.toFixed(1)} 点 ≈ ${yen(credit*POSITION.mult)}</strong></div>
+    <div class="row"><span>已兑现比例</span><strong class="${capCls}">${capTxt}</strong></div>
     <div class="row"><span>开仓以来累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
     <div class="row"><span>剩余腿浮动盈亏</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>
     <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>
     <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
     <div class="row"><span>IM 最新</span><strong>${fmt(im.last,1)}</strong></div>
-    <div class="note">剩余腿若到期全虚值，权利金全留约 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。下行有买 P6200×1 保护，但空头为 P6500+P6600 共 2 张，6200 以下净空 1 张 Put，亏损仍可扩大。上行 2×C6800 无保护腿，不封顶。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
+    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。下行有买 P6200×1 保护，但空头为 P6500+P6600 共 2 张，6200 以下净空 1 张 Put，亏损仍可扩大。上行 2×C6800 无保护腿，不封顶。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
-    <div class="k">剩余分腿盯市（优先最新价，否则买卖中价）</div>
+    <div class="k">剩余分腿盯市（优先最新价，否则买卖中价；最新价×手数计入净权利金）</div>
     ${rows.join('')||'<div class="note">当前无剩余腿</div>'}
     <div class="row"><span>剩余腿浮动合计</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>`;
   document.getElementById('posClosed').innerHTML=`
@@ -490,7 +500,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611121116';
+const APP_VER='202611121323';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
