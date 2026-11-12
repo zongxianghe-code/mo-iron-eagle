@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611121323"/>
+<link rel="manifest" href="manifest.json?v=202611121327"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -148,12 +148,43 @@ const CLOSED=[
   {date:'2026-11-12', time:'10:05:25', code:'MO2611-P-6100', side:'long', cp:'P', strike:6100, qty:1, entry:44.6, exit:6.8},
   {date:'2026-11-12', time:'10:15:28', code:'MO2611-P-6400', side:'short', cp:'P', strike:6400, qty:1, entry:141.6, exit:26.2},
 ];
+/** 每个交易日收盘追加一条。cumPnL=当日已实现 + 当时持仓按 basis 盯市。页面取「今天之前最近一条」作为昨日收盘。 */
+const DAILY_SNAPSHOTS=[
+  {
+    date:'2026-11-11',
+    basis:'结算价',
+    source:'中金所日行情（该日相关腿收盘价与结算价一致）',
+    cumPnL:20620,
+    realized:0,
+    legs:[
+      {side:'short',cp:'C',strike:6800,qty:2,entry:89.5,mark:62.0},
+      {side:'long', cp:'C',strike:7000,qty:2,entry:30.0,mark:20.4},
+      {side:'long', cp:'P',strike:6000,qty:1,entry:49.2,mark:6.2},
+      {side:'long', cp:'P',strike:6100,qty:1,entry:44.6,mark:8.0},
+      {side:'short',cp:'P',strike:6400,qty:1,entry:141.6,mark:34.0},
+      {side:'short',cp:'P',strike:6500,qty:1,entry:197.6,mark:55.2},
+    ]
+  }
+];
 function realizedOf(T){
   const sign=T.side==='short'?1:-1;
   return Math.round(sign*(T.entry-T.exit)*T.qty*POSITION.mult);
 }
 function realizedTotal(){
   return CLOSED.reduce((a,T)=>a+realizedOf(T),0);
+}
+function prevCloseSnapshot(){
+  const today=shanghaiNow().date;
+  let best=null;
+  for(const s of DAILY_SNAPSHOTS){
+    if(!s||!s.date||s.date>=today) continue;
+    if(!best||s.date>best.date) best=s;
+  }
+  return best;
+}
+function yenSigned(n){
+  const s=Math.round(Math.abs(n)).toLocaleString('en-US');
+  return (n<0?'-':'+')+'¥'+s;
 }
 let timer=null;
 
@@ -192,7 +223,7 @@ function shanghaiNow(){
   const mins=hour*60+minute;
   const wd=g.weekday;
   const weekday=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(wd);
-  return {hour,minute,second,mins,weekday,label:`${g.year}-${g.month}-${g.day} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:${String(second).padStart(2,'0')}`};
+  return {hour,minute,second,mins,weekday,date:`${g.year}-${g.month}-${g.day}`,label:`${g.year}-${g.month}-${g.day} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:${String(second).padStart(2,'0')}`};
 }
 /** CFFEX equity index futures: 09:30-11:30, 13:00-15:00; auction 09:25-09:30; no night session. */
 function sessionMode(){
@@ -406,6 +437,14 @@ function renderPos(){
   }
   const total=realized+totalMtm;
   const liveOk=!missing.length && POSITION.legs.length>0;
+  const prev=prevCloseSnapshot();
+  const changeOk=prev!=null && (liveOk || !POSITION.legs.length);
+  const change=changeOk?total-prev.cumPnL:null;
+  const prevCls=prev==null?'':(prev.cumPnL>=0?'win':'loss');
+  const chgCls=change==null?'':(change>=0?'win':'loss');
+  const prevTxt=prev==null?'—':yen(prev.cumPnL);
+  const prevHint=prev?`（${prev.date} ${prev.basis||'收盘'}）`:'';
+  const chgTxt=change==null?'—':yenSigned(change);
   const captured=liveOk && credit!==0 ? (credit-liveCredit)/credit : null;
   const liveCls=liveOk?(liveCredit>=0?'win':'loss'):'';
   const capCls=captured==null?'':(captured>=0?'win':'loss');
@@ -429,9 +468,11 @@ function renderPos(){
     <div class="row"><span>开仓以来累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
     <div class="row"><span>剩余腿浮动盈亏</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>
     <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>
+    <div class="row"><span>昨日收盘累计收益${prevHint}</span><strong class="${prevCls}">${prevTxt}</strong></div>
+    <div class="row"><span>较昨收变动</span><strong class="${chgCls}">${chgTxt}</strong></div>
     <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
     <div class="row"><span>IM 最新</span><strong>${fmt(im.last,1)}</strong></div>
-    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。下行有买 P6200×1 保护，但空头为 P6500+P6600 共 2 张，6200 以下净空 1 张 Put，亏损仍可扩大。上行 2×C6800 无保护腿，不封顶。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
+    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（结算价记账，未扣费）。下行有买 P6200×1 保护，但空头为 P6500+P6600 共 2 张，6200 以下净空 1 张 Put，亏损仍可扩大。上行 2×C6800 无保护腿，不封顶。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
     <div class="k">剩余分腿盯市（优先最新价，否则买卖中价；最新价×手数计入净权利金）</div>
@@ -500,7 +541,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611121323';
+const APP_VER='202611121327';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();

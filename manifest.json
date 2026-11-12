@@ -1,7 +1,7 @@
 {
   "name": "MO 铁鹰",
   "short_name": "MO铁鹰",
-  "start_url": "./?v=202611121323",
+  "start_url": "./?v=202611121327",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b1220",
