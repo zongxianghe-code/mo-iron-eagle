@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611061718"/>
+<link rel="manifest" href="manifest.json?v=202611121010"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -107,6 +107,7 @@ svg.payoff{width:100%;height:auto;display:block;background:#0f1828;border-radius
 <section class="panel" id="panelPos">
   <div class="card" id="posSummary"></div>
   <div class="card" id="posLegs"></div>
+  <div class="card" id="posClosed"></div>
   <div class="card">
     <h2>到期收益曲线（¥）</h2>
     <div id="posChart"></div>
@@ -130,18 +131,28 @@ const GROUPS=[
   {key:'IC',label:'500 IC',idx:'s_sh000905',months:['2611','2612','2703','2706']},
   {key:'IM',label:'1000 IM',idx:'s_sh000852',months:['2611','2612','2703','2706']},
 ];
-/** 现有持仓（用户成交价，勿改） MO2611 */
+/** 现有持仓（剩余腿成交价，勿改） MO2611 */
 const POSITION={
   code:'MO2611', exp:'2026-11-20', mult:100, feePerLeg:16.5,
   legs:[
     {side:'short', cp:'C', strike:6800, qty:2, entry:89.5},
-    {side:'long',  cp:'P', strike:6000, qty:1, entry:49.2},
-    {side:'long',  cp:'P', strike:6100, qty:1, entry:44.6},
     {side:'short', cp:'P', strike:6400, qty:1, entry:141.6},
     {side:'short', cp:'P', strike:6500, qty:1, entry:197.6},
-    {side:'long',  cp:'C', strike:7000, qty:2, entry:30.0},
   ]
 };
+/** 已平仓记录（开仓以来累计；后续平仓只追加，不改历史） 时间=北京时间 */
+const CLOSED=[
+  {date:'2026-11-12', time:'10:04:14', code:'MO2611-P-6000', side:'long', cp:'P', strike:6000, qty:1, entry:49.2, exit:5.2},
+  {date:'2026-11-12', time:'10:04:56', code:'MO2611-C-7000', side:'long', cp:'C', strike:7000, qty:2, entry:30.0, exit:20.6, note:'两笔各1手同价'},
+  {date:'2026-11-12', time:'10:05:25', code:'MO2611-P-6100', side:'long', cp:'P', strike:6100, qty:1, entry:44.6, exit:6.8},
+];
+function realizedOf(T){
+  const sign=T.side==='short'?1:-1;
+  return Math.round(sign*(T.entry-T.exit)*T.qty*POSITION.mult);
+}
+function realizedTotal(){
+  return CLOSED.reduce((a,T)=>a+realizedOf(T),0);
+}
 let timer=null;
 
 function yen(n){const neg=n<0;const s=Math.round(Math.abs(n)).toLocaleString('en-US');return (neg?'-':'')+'¥'+s;}
@@ -356,19 +367,22 @@ function netCreditPts(){
   return c;
 }
 function payoffAt(S){
-  // points P&L at expiry (premium already in via entry), then *mult for ¥
+  // 剩余腿到期盈亏（含其开仓权利金）+ 已实现平仓盈亏
   let pts=0;
   for(const L of POSITION.legs){
     const intrinsic = L.cp==='C' ? Math.max(S-L.strike,0) : Math.max(L.strike-S,0);
     if(L.side==='short') pts += (L.entry - intrinsic)*L.qty;
     else pts += (intrinsic - L.entry)*L.qty;
   }
-  return pts*POSITION.mult;
+  return pts*POSITION.mult + realizedTotal();
 }
 function renderPos(){
   const im=snap.im||{};
   const credit=netCreditPts();
-  const feesOpen=POSITION.legs.reduce((a,L)=>a+L.qty*POSITION.feePerLeg,0);
+  const openQty=POSITION.legs.reduce((a,L)=>a+L.qty,0);
+  const closedQty=CLOSED.reduce((a,T)=>a+T.qty,0);
+  const feesEst=(openQty+closedQty*2)*POSITION.feePerLeg; // 剩余腿仅开仓；已平腿开仓+平仓
+  const realized=realizedTotal();
   let totalMtm=0, missing=[];
   const rows=[];
   for(const L of POSITION.legs){
@@ -386,24 +400,37 @@ function renderPos(){
     rows.push(`<div class="row"><span>${sideZh} ${cpZh} ${L.strike} ×${L.qty}</span>
       <span>开 ${L.entry.toFixed(1)} · 标 ${mk!=null?mk.toFixed(1):'—'} · <strong class="${cls}">${pnlYen==null?'—':yen(pnlYen)}</strong></span></div>`);
   }
-  // rough plateau / BE notes
-  const plateauMax=credit*POSITION.mult; // ~42440 before fees
-  const downCap=payoffAt(5600); // deep ITM puts side
+  const total=realized+totalMtm;
+  const closedRows=CLOSED.map(T=>{
+    const pnl=realizedOf(T);
+    const cpZh=T.cp==='C'?'Call':'Put';
+    const cls=pnl>=0?'win':'loss';
+    const extra=T.note?` <span class="tiny">${T.note}</span>`:'';
+    return `<div class="row"><span>${T.date} ${T.time} 卖平 ${cpZh} ${T.strike} ×${T.qty}${extra}</span>
+      <span>开 ${T.entry.toFixed(1)} · 平 ${T.exit.toFixed(1)} · <strong class="${cls}">${yen(pnl)}</strong></span></div>`;
+  });
   document.getElementById('posSummary').innerHTML=`
     <h2>现有持仓 · ${POSITION.code}</h2>
     <div class="row"><span>到期</span><strong>${POSITION.exp}</strong></div>
-    <div class="row"><span>开仓净权利金</span><strong class="win">${credit.toFixed(1)} 点 ≈ ${yen(credit*POSITION.mult)}</strong></div>
-    <div class="row"><span>手续费（开仓估）</span><span>≈ ${yen(feesOpen)}（${POSITION.feePerLeg}/张 × 张数）</span></div>
-    <div class="row"><span>当前未实现盈亏</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>
+    <div class="row"><span>剩余腿净权利金</span><strong class="win">${credit.toFixed(1)} 点 ≈ ${yen(credit*POSITION.mult)}</strong></div>
+    <div class="row"><span>开仓以来累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
+    <div class="row"><span>剩余腿浮动盈亏</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>
+    <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>
+    <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
     <div class="row"><span>IM 最新</span><strong>${fmt(im.last,1)}</strong></div>
-    <div class="note">平台约 6500–6800 最大盈利 ≈ ${yen(plateauMax)}（未扣费）；下行 ≤6000 约 ${yen(downCap)}；上行 2×C6800 已由 2×C7000 封顶，≥7000 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
+    <div class="note">剩余腿若到期全虚值，权利金全留约 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。P6000 / P6100 / C7000 已平，下行短 Put、上行 2×C6800 均不再封顶，两侧亏损可随标的扩大。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
-    <div class="k">分腿盯市（优先最新价，否则买卖中价）</div>
-    ${rows.join('')}
-    <div class="row"><span>合计未实现</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>`;
+    <div class="k">剩余分腿盯市（优先最新价，否则买卖中价）</div>
+    ${rows.join('')||'<div class="note">当前无剩余腿</div>'}
+    <div class="row"><span>剩余腿浮动合计</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>`;
+  document.getElementById('posClosed').innerHTML=`
+    <div class="k">已平仓记录（开仓以来累计，后续平仓继续累加）</div>
+    ${closedRows.join('')||'<div class="note">暂无平仓</div>'}
+    <div class="row"><span>累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
+    <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>`;
   document.getElementById('posChart').innerHTML=buildPayoffSvg(im.last||6500);
-  document.getElementById('posChartNote').textContent='横轴标的（估）5600–7600；纵轴到期盈亏（¥，含开仓权利金，未扣手续费）。竖线=当前 IM 最新。';
+  document.getElementById('posChartNote').textContent='横轴标的（估）5600–7600；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。竖线=当前 IM 最新。保护腿已平，两侧不再封顶。';
 }
 function buildPayoffSvg(spot){
   const x0=5600, x1=7600, step=20;
@@ -460,7 +487,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611061718';
+const APP_VER='202611121010';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
