@@ -20,8 +20,12 @@ jobs:
           mins = t.hour*60 + t.minute
           wd = t.weekday()  # Mon=0
           in_sess = wd < 5 and ((9*60 <= mins < 11*60+35) or (13*60 <= mins < 15*60+5))
-          open('run.flag','w').write('1' if in_sess else '0')
-          print('shanghai', t.isoformat(), 'run', in_sess)
+          # 15:05–15:20: late fire still runs update_quotes.py so snapshot_close can upsert;
+          # that script will not rewrite quotes.json in this window.
+          in_close_snap = wd < 5 and (15*60+5 <= mins < 15*60+20)
+          run = in_sess or in_close_snap
+          open('run.flag','w').write('1' if run else '0')
+          print('shanghai', t.isoformat(), 'run', run, 'sess', in_sess, 'close_snap', in_close_snap)
           PY
           if [ "$(cat run.flag)" != "1" ] && [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             echo "outside session, skip"
@@ -32,7 +36,14 @@ jobs:
         run: |
           git config user.name "quotes-bot"
           git config user.email "quotes-bot@users.noreply.github.com"
-          git add quotes.json
+          git add quotes.json daily_snapshots.json
           if git diff --cached --quiet; then echo "no change"; exit 0; fi
-          git commit -m "chore: refresh quotes.json"
+          Q=0; S=0
+          git diff --cached --name-only | grep -qx quotes.json && Q=1 || true
+          git diff --cached --name-only | grep -qx daily_snapshots.json && S=1 || true
+          if [ "$Q" = 1 ] && [ "$S" = 1 ]; then MSG="chore: refresh quotes.json and daily close snapshot"
+          elif [ "$S" = 1 ]; then MSG="chore: upsert daily close snapshot"
+          else MSG="chore: refresh quotes.json"
+          fi
+          git commit -m "$MSG"
           git push

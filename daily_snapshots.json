@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2026-11-11",
+    "basis": "结算价",
+    "source": "中金所日行情（该日相关腿收盘价与结算价一致）",
+    "cumPnL": 20620,
+    "realized": 0,
+    "legs": [
+      {"side": "short", "cp": "C", "strike": 6800, "qty": 2, "entry": 89.5, "mark": 62.0},
+      {"side": "long", "cp": "C", "strike": 7000, "qty": 2, "entry": 30.0, "mark": 20.4},
+      {"side": "long", "cp": "P", "strike": 6000, "qty": 1, "entry": 49.2, "mark": 6.2},
+      {"side": "long", "cp": "P", "strike": 6100, "qty": 1, "entry": 44.6, "mark": 8.0},
+      {"side": "short", "cp": "P", "strike": 6400, "qty": 1, "entry": 141.6, "mark": 34.0},
+      {"side": "short", "cp": "P", "strike": 6500, "qty": 1, "entry": 197.6, "mark": 55.2}
+    ]
+  },
+  {
+    "date": "2026-11-12",
+    "basis": "收盘价",
+    "source": "新浪盘末最新价（quotes.json asOf 2026-11-12 15:04:03 Asia/Shanghai）",
+    "asOf": "2026-11-12 15:04:03 Asia/Shanghai",
+    "im": 6528.0,
+    "cumPnL": 17880,
+    "realized": 6430,
+    "legs": [
+      {"side": "short", "cp": "C", "strike": 6800, "qty": 1, "entry": 89.5, "mark": 23.6},
+      {"side": "short", "cp": "P", "strike": 6500, "qty": 1, "entry": 197.6, "mark": 97.2},
+      {"side": "short", "cp": "P", "strike": 6600, "qty": 1, "entry": 80.0, "mark": 146.2},
+      {"side": "long", "cp": "P", "strike": 6200, "qty": 1, "entry": 10.6, "mark": 25.0}
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "basis": "收盘价",
+    "source": "新浪盘末最新价（quotes.json asOf 2026-11-13 15:03:30 Asia/Shanghai）",
+    "asOf": "2026-11-13 15:03:30 Asia/Shanghai",
+    "im": 6330.0,
+    "cumPnL": -2340,
+    "realized": 6430,
+    "legs": [
+      {"side": "short", "cp": "C", "strike": 6800, "qty": 1, "entry": 89.5, "mark": 6.6},
+      {"side": "short", "cp": "P", "strike": 6500, "qty": 1, "entry": 197.6, "mark": 205.0},
+      {"side": "short", "cp": "P", "strike": 6600, "qty": 1, "entry": 80.0, "mark": 288.6},
+      {"side": "long", "cp": "P", "strike": 6200, "qty": 1, "entry": 10.6, "mark": 56.0}
+    ]
+  },
+  {
+    "date": "2026-11-16",
+    "basis": "收盘价",
+    "source": "新浪盘末最新价（quotes.json asOf 2026-11-16 15:04:09 Asia/Shanghai）",
+    "asOf": "2026-11-16 15:04:09 Asia/Shanghai",
+    "im": 6155.4,
+    "cumPnL": -26100,
+    "realized": 6430,
+    "legs": [
+      {"side": "short", "cp": "C", "strike": 6800, "qty": 1, "entry": 89.5, "mark": 2.8},
+      {"side": "short", "cp": "P", "strike": 6500, "qty": 1, "entry": 197.6, "mark": 361.2},
+      {"side": "short", "cp": "P", "strike": 6600, "qty": 1, "entry": 80.0, "mark": 449.0},
+      {"side": "long", "cp": "P", "strike": 6200, "qty": 1, "entry": 10.6, "mark": 131.2}
+    ]
+  }
+]

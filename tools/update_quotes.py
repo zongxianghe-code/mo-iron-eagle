@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Fetch Sina quotes with finance.sina Referer and write quotes.json for GitHub Pages."""
+"""Fetch Sina quotes with finance.sina Referer and write quotes.json for GitHub Pages.
+
+On Asia/Shanghai weekdays, also calls snapshot_close.upsert_today() during
+15:00–15:20. After 15:05 this script does not rewrite quotes.json; it only
+upserts daily_snapshots.json from the last in-window quotes.
+"""
 from __future__ import annotations
 import json, math, re, urllib.request
 from datetime import datetime
@@ -87,7 +92,34 @@ def calendar_years_to_expiry(exp_yyyy_mm_dd: str, now) -> float:
     secs = (exp - now).total_seconds()
     return max(secs / (365.0 * 24 * 3600), 1.0 / 365.0)
 
+def _mins(now: datetime) -> int:
+    return now.hour * 60 + now.minute
+
+
+def in_late_snapshot_window(now: datetime) -> bool:
+    """Weekday 15:05–15:20: snapshot only, do not touch quotes.json."""
+    return now.weekday() < 5 and (15 * 60 + 5) <= _mins(now) < (15 * 60 + 20)
+
+
+def in_snapshot_window(now: datetime) -> bool:
+    """Weekday 15:00–15:20, covering the last in-window quotes run and late fires."""
+    return now.weekday() < 5 and (15 * 60) <= _mins(now) < (15 * 60 + 20)
+
+
+def maybe_snapshot_close(now: datetime) -> None:
+    if not in_snapshot_window(now):
+        return
+    # tools/ is on sys.path when this file is run as a script
+    import snapshot_close
+    snapshot_close.upsert_today(now=now, force=True)
+
+
 def main() -> None:
+    now = datetime.now(TZ)
+    if in_late_snapshot_window(now):
+        print(f"skip quotes write after 15:05 (now={now.strftime('%Y-%m-%d %H:%M:%S')} Asia/Shanghai); snapshot only")
+        maybe_snapshot_close(now)
+        return
     m1 = parse_map(fetch(",".join(BASE)))
     im = parse_fut(m1["nf_IM2611"]) if m1.get("nf_IM2611") else None
     idx = parse_idx(m1["s_sh000852"]) if m1.get("s_sh000852") else None
@@ -137,6 +169,7 @@ def main() -> None:
     }
     OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"ok {OUT} asOf={payload['asOf']} IM={im and im['last']} ATM={atm} IV={payload['iv']} legs={len(chain)}")
+    maybe_snapshot_close(datetime.now(TZ))
 
 if __name__ == "__main__":
     main()

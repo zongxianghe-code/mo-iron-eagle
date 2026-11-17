@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611121346"/>
+<link rel="manifest" href="manifest.json?v=202611171120"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -165,8 +165,54 @@ const DAILY_SNAPSHOTS=[
       {side:'short',cp:'P',strike:6400,qty:1,entry:141.6,mark:34.0},
       {side:'short',cp:'P',strike:6500,qty:1,entry:197.6,mark:55.2},
     ]
+  },
+  {
+    date:'2026-11-12',
+    basis:'收盘价',
+    source:'新浪盘末最新价（quotes.json asOf 2026-11-12 15:04:03 Asia/Shanghai）',
+    asOf:'2026-11-12 15:04:03 Asia/Shanghai',
+    im:6528.0,
+    cumPnL:17880,
+    realized:6430,
+    legs:[
+      {side:'short',cp:'C',strike:6800,qty:1,entry:89.5,mark:23.6},
+      {side:'short',cp:'P',strike:6500,qty:1,entry:197.6,mark:97.2},
+      {side:'short',cp:'P',strike:6600,qty:1,entry:80.0,mark:146.2},
+      {side:'long', cp:'P',strike:6200,qty:1,entry:10.6,mark:25.0},
+    ]
+  },
+  {
+    date:'2026-11-13',
+    basis:'收盘价',
+    source:'新浪盘末最新价（quotes.json asOf 2026-11-13 15:03:30 Asia/Shanghai）',
+    asOf:'2026-11-13 15:03:30 Asia/Shanghai',
+    im:6330.0,
+    cumPnL:-2340,
+    realized:6430,
+    legs:[
+      {side:'short',cp:'C',strike:6800,qty:1,entry:89.5,mark:6.6},
+      {side:'short',cp:'P',strike:6500,qty:1,entry:197.6,mark:205.0},
+      {side:'short',cp:'P',strike:6600,qty:1,entry:80.0,mark:288.6},
+      {side:'long', cp:'P',strike:6200,qty:1,entry:10.6,mark:56.0},
+    ]
+  },
+  {
+    date:'2026-11-16',
+    basis:'收盘价',
+    source:'新浪盘末最新价（quotes.json asOf 2026-11-16 15:04:09 Asia/Shanghai）',
+    asOf:'2026-11-16 15:04:09 Asia/Shanghai',
+    im:6155.4,
+    cumPnL:-26100,
+    realized:6430,
+    legs:[
+      {side:'short',cp:'C',strike:6800,qty:1,entry:89.5,mark:2.8},
+      {side:'short',cp:'P',strike:6500,qty:1,entry:197.6,mark:361.2},
+      {side:'short',cp:'P',strike:6600,qty:1,entry:80.0,mark:449.0},
+      {side:'long', cp:'P',strike:6200,qty:1,entry:10.6,mark:131.2},
+    ]
   }
 ];
+let dailySnapshots=DAILY_SNAPSHOTS.slice();
 function realizedOf(T){
   const sign=T.side==='short'?1:-1;
   return Math.round(sign*(T.entry-T.exit)*T.qty*POSITION.mult);
@@ -174,10 +220,17 @@ function realizedOf(T){
 function realizedTotal(){
   return CLOSED.reduce((a,T)=>a+realizedOf(T),0);
 }
+function applySnapshotList(list){
+  if(!Array.isArray(list)||!list.length) return;
+  const byDate={};
+  for(const s of dailySnapshots){ if(s&&s.date) byDate[s.date]=s; }
+  for(const s of list){ if(s&&s.date) byDate[s.date]=s; }
+  dailySnapshots=Object.keys(byDate).sort().map(d=>byDate[d]);
+}
 function prevCloseSnapshot(){
   const today=shanghaiNow().date;
   let best=null;
-  for(const s of DAILY_SNAPSHOTS){
+  for(const s of dailySnapshots){
     if(!s||!s.date||s.date>=today) continue;
     if(!best||s.date>best.date) best=s;
   }
@@ -473,7 +526,7 @@ function renderPos(){
     <div class="row"><span>较昨收变动</span><strong class="${chgCls}">${chgTxt}</strong></div>
     <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
     <div class="row"><span>IM 最新</span><strong>${fmt(im.last,1)}</strong></div>
-    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（结算价记账，未扣费）。下行有买 P6200×1 保护，但空头为 P6500+P6600 共 2 张，6200 以下净空 1 张 Put，亏损仍可扩大。上行 1×C6800 无保护腿，不封顶。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
+    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（按该日快照口径，未扣费）。下行有买 P6200×1 保护，但空头为 P6500+P6600 共 2 张，6200 以下净空 1 张 Put，亏损仍可扩大。上行 1×C6800 无保护腿，不封顶。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
     <div class="k">剩余分腿盯市（优先最新价，否则买卖中价；最新价×手数计入净权利金）</div>
@@ -522,6 +575,15 @@ function buildPayoffSvg(spot){
   </svg>`;
 }
 
+async function pullDailySnapshots(){
+  try{
+    const r=await fetch('daily_snapshots.json?_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return;
+    const d=await r.json();
+    const list=Array.isArray(d)?d:(d&&Array.isArray(d.snapshots)?d.snapshots:null);
+    applySnapshotList(list);
+  }catch(e){ /* keep inline DAILY_SNAPSHOTS fallback */ }
+}
 async function pullQuotes(){
   const r=await fetch('quotes.json?_='+Date.now(),{cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
@@ -539,10 +601,11 @@ async function pullQuotes(){
   if(d.basis){
     basisData={idx:d.basis.idx||{},fut:d.basis.fut||{},time:d.basis.time||d.asOf||'',live:true};
   }
+  await pullDailySnapshots();
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611121346';
+const APP_VER='202611171120';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
