@@ -191,17 +191,9 @@
     "source": "新浪盘末最新价（quotes.json asOf 2026-11-17 15:04:58 Asia/Shanghai）",
     "asOf": "2026-11-17 15:04:58 Asia/Shanghai",
     "im": 6077.8,
-    "cumPnL": -38060,
-    "realized": 6430,
+    "cumPnL": -38760,
+    "realized": 14580,
     "legs": [
-      {
-        "side": "short",
-        "cp": "C",
-        "strike": 6800,
-        "qty": 1,
-        "entry": 89.5,
-        "mark": 1.0
-      },
       {
         "side": "short",
         "cp": "P",
@@ -234,17 +226,9 @@
     "source": "新浪盘末最新价（quotes.json asOf 2026-11-18 14:58:30 Asia/Shanghai）",
     "asOf": "2026-11-18 14:58:30 Asia/Shanghai",
     "im": 6035.2,
-    "cumPnL": -41340,
-    "realized": 6430,
+    "cumPnL": -42100,
+    "realized": 14580,
     "legs": [
-      {
-        "side": "short",
-        "cp": "C",
-        "strike": 6800,
-        "qty": 1,
-        "entry": 89.5,
-        "mark": 0.4
-      },
       {
         "side": "short",
         "cp": "P",
