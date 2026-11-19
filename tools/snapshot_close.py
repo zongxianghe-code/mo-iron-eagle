@@ -107,7 +107,7 @@ def load_page_data(index_path: Path = INDEX) -> dict:
 
 def realized_of(trade: dict, mult: float) -> int:
     sign = 1 if trade.get("side") == "short" else -1
-    return int(round(sign * (trade["entry"] - trade["exit"]) * trade["qty"] * mult))
+    return int(round(sign * (trade["entry"] - trade["exit"]) * trade["qty"] * (trade.get("mult") or mult)))
 
 
 def realized_total(page: dict) -> int:
