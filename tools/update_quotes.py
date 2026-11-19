@@ -214,6 +214,71 @@ def maybe_snapshot_close(now: datetime) -> None:
     snapshot_close.upsert_today(now=now, force=True)
 
 
+# ---------------------------------------------------------------- realized (historical) vol of 中证1000
+KLINE_URL = ("https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20_x=/CN_MarketDataService.getKLineData"
+             "?symbol=sh000852&scale=240&ma=no&datalen=60")
+
+
+def fetch_daily_closes() -> list:
+    """[[YYYY-MM-DD, close], ...] ascending, from Sina daily K-line (raises on failure)."""
+    req = urllib.request.Request(KLINE_URL, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"})
+    with urllib.request.urlopen(req, timeout=12) as r:
+        raw = r.read().decode("utf-8", errors="replace")
+    m = re.search(r"\(\s*(\[.*\])\s*\)", raw, re.S)
+    rows = json.loads(m.group(1))
+    out = [[r["day"], float(r["close"])] for r in rows if r.get("day") and float(r.get("close") or 0) > 0]
+    if len(out) < 22:
+        raise ValueError(f"too few kline rows: {len(out)}")
+    return sorted(out)
+
+
+def hv_of(closes: list, n: int) -> float | None:
+    """Close-to-close log-return stdev (sample) over the last n returns, annualized x sqrt(252)."""
+    if len(closes) < n + 1:
+        return None
+    c = closes[-(n + 1):]
+    rets = [math.log(c[i + 1] / c[i]) for i in range(n)]
+    mu = sum(rets) / n
+    var = sum((x - mu) ** 2 for x in rets) / (n - 1)
+    return math.sqrt(var) * math.sqrt(252.0)
+
+
+def compute_hv(now: datetime, live_last: float | None, prev: dict | None) -> dict | None:
+    """hv5/10/20 = completed daily closes only; live5/10/20 = same but today's live index price appended
+    as the latest close. Never raises: on fetch failure reuse cached closes (or the previous hv)."""
+    today = now.strftime("%Y-%m-%d")
+    try:
+        bars = fetch_daily_closes()
+        source = "sina-kline-sh000852"
+    except Exception as e:  # noqa: BLE001
+        print(f"hv: kline fetch failed ({e}); using cache")
+        bars = (prev or {}).get("closes")
+        source = ((prev or {}).get("source") or "cache") 
+        if not bars:
+            return prev
+    done = [b for b in bars if b[0] < today]          # exclude today's partial bar
+    if len(done) < 21:
+        return prev
+    closes = [b[1] for b in done]
+    r = lambda x: round(x, 4) if x is not None else None  # noqa: E731
+    hv = {
+        "hv5": r(hv_of(closes, 5)), "hv10": r(hv_of(closes, 10)), "hv20": r(hv_of(closes, 20)),
+        "asOfDate": done[-1][0], "source": source, "closes": done[-40:],
+    }
+    if live_last and now.weekday() < 5 and _mins(now) >= 9 * 60 + 30:
+        lc = closes + [float(live_last)]
+        hv.update({"live5": r(hv_of(lc, 5)), "live10": r(hv_of(lc, 10)), "live20": r(hv_of(lc, 20)),
+                   "liveLast": float(live_last), "liveDate": today})
+    return hv
+
+
+def load_prev_hv() -> dict | None:
+    try:
+        return json.loads(OUT.read_text(encoding="utf-8")).get("hv")
+    except Exception:
+        return None
+
+
 def main() -> None:
     now = datetime.now(TZ)
     if in_late_snapshot_window(now):
@@ -247,6 +312,11 @@ def main() -> None:
         iv_hist = [e for e in iv_hist if e.get("t") != t]
         iv_hist.append({"t": t, "month": sig, "iv": round(s_iv, 4)})
     iv_hist = iv_hist[-IV_HIST_MAX:]
+    try:
+        hv = compute_hv(now0, (idx or {}).get("last"), load_prev_hv())
+    except Exception as e:  # noqa: BLE001  never fail the whole update because of HV
+        print(f"hv: skipped ({e})")
+        hv = load_prev_hv()
     now = datetime.now(TZ)
     payload = {
         "asOf": now.strftime("%Y-%m-%d %H:%M:%S") + " Asia/Shanghai",
@@ -269,6 +339,7 @@ def main() -> None:
         "signalIv": round(s_iv, 4) if s_iv else None,
         "signalChain": s_chain,
         "ivHist": iv_hist,
+        "hv": hv,
         "basis": {
             "idx": {
                 "s_sh000852": parse_idx(m1["s_sh000852"]) if m1.get("s_sh000852") else None,
@@ -279,7 +350,7 @@ def main() -> None:
         },
     }
     OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"ok {OUT} asOf={payload['asOf']} IM={im and im['last']} ATM={atm} IV={payload['iv']} legs={len(chain)} | near={near}({near_days}d) signal={sig} F={payload['signalF']} ATM={s_atm} IV={payload['signalIv']} legs={len(s_chain)} hist={len(iv_hist)}")
+    print(f"ok {OUT} asOf={payload['asOf']} IM={im and im['last']} ATM={atm} IV={payload['iv']} legs={len(chain)} | near={near}({near_days}d) signal={sig} F={payload['signalF']} ATM={s_atm} IV={payload['signalIv']} legs={len(s_chain)} hist={len(iv_hist)} hv5/10/20={hv and (hv.get('hv5'), hv.get('hv10'), hv.get('hv20'))} live20={hv and hv.get('live20')}")
     maybe_snapshot_close(datetime.now(TZ))
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611191440"/>
+<link rel="manifest" href="manifest.json?v=202611191444"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -82,6 +82,7 @@ svg.payoff{width:100%;height:auto;display:block;background:#0f1828;border-radius
 
 <section class="panel on" id="panelStrat">
   <div class="grid2" id="mkt"></div>
+  <div class="card" id="volCard"></div>
   <div class="card" id="fut"></div>
   <div class="card" id="chainCard"></div>
   <div class="seg">
@@ -412,6 +413,24 @@ function switchNote(S){
   if(!S.switched) return '';
   return `<div class="note">近月 MO${S.near} 剩余 ≤5 个交易日${S.nearDays!=null?`（${S.nearDays}）`:''}，已切换至次近月 MO${S.month}</div>`;
 }
+function renderVol(S){
+  const hv=snap.hv||null;
+  const pc=x=>(x!=null&&isFinite(x))?(x*100).toFixed(1)+'%':'—';
+  const sp=(a,b)=>{ if(a==null||b==null||!isFinite(a)||!isFinite(b)) return {t:'—',cls:''}; const d=(a-b)*100; return {t:(d>=0?'+':'')+d.toFixed(1)+' 点',cls:d>=0?'win':'loss'}; };
+  const iv=S.iv;
+  const s20=sp(iv,hv&&hv.hv20), sL=sp(iv,hv&&hv.live20);
+  document.getElementById('volCard').innerHTML=`
+    <div class="k">隐波 vs 实波（中证1000）</div>
+    <div class="grid2" style="margin-top:6px">
+      <div class="card"><div class="k">隐含波动率 IV · MO${S.month}</div><div class="v">${pc(iv)}</div><div class="tiny">ATM ${S.atm}</div></div>
+      <div class="card"><div class="k">实际波动率 HV20</div><div class="v">${pc(hv&&hv.hv20)}</div><div class="tiny">含今日实时 ${pc(hv&&hv.live20)}</div></div>
+    </div>
+    <div class="row"><span>HV5 / HV10 / HV20（收盘价）</span><span>${pc(hv&&hv.hv5)} / ${pc(hv&&hv.hv10)} / ${pc(hv&&hv.hv20)}</span></div>
+    <div class="row"><span>含今日实时 HV5 / HV10 / HV20</span><span>${pc(hv&&hv.live5)} / ${pc(hv&&hv.live10)} / ${pc(hv&&hv.live20)}</span></div>
+    <div class="row"><span>IV − HV20（隐波溢价）</span><strong class="${s20.cls}">${s20.t}</strong></div>
+    <div class="row"><span>IV − 实时 HV20</span><strong class="${sL.cls}">${sL.t}</strong></div>
+    <div class="note">HV = 中证1000 日线收盘价对数收益的标准差 ×√252${hv&&hv.asOfDate?`，收盘数据截至 ${hv.asOfDate}`:''}；“含今日实时”把当前指数价当作今天的收盘。IV 高于 HV 表示期权相对近期实际波动偏贵（对卖方有利），反之偏便宜。仅供参考，不计入开仓条件。</div>`;
+}
 function renderStrat(){
   const c=compute(); const S=c.S; const idx=snap.idx||{}; const im=S.im||snap.im||{};
   setStatus();
@@ -421,6 +440,7 @@ function renderStrat(){
       <div class="tiny chg ${chgCls}">${(idx.chg>=0?'+':'')+fmt(idx.chg,2)} · ${(idx.pct>=0?'+':'')+fmt(idx.pct,2)}%</div></div>
     <div class="card"><div class="k">ATM 隐含波动率 · MO${S.month}</div><div class="v">${(S.iv*100).toFixed(1)}%</div>
       <div class="tiny">ATM ${c.atm} · IM${S.month} ${fmt(im.last,1)}</div></div>`;
+  renderVol(S);
   document.getElementById('fut').innerHTML=`
     <h2>期货 IM${S.month}</h2>
     <div class="row"><span>最新</span><strong>${fmt(im.last,1)}</strong></div>
@@ -681,6 +701,7 @@ async function pullQuotes(){
     iv:(d.iv!=null?d.iv:snap.iv),
     chain:d.chain||{}
   };
+  snap.hv=d.hv||null;
   if(d.signalMonth && d.signalChain && d.signalIm){
     snap.sig={month:d.signalMonth,exp:d.signalExp||expOf(d.signalMonth),im:d.signalIm,atm:d.signalAtm||snap.atm,iv:(d.signalIv!=null?d.signalIv:snap.iv),
       chain:d.signalChain,hist:Array.isArray(d.ivHist)?d.ivHist:[],near:d.nearMonth||d.signalMonth,nearDays:(d.nearDaysLeft!=null?d.nearDaysLeft:null),switched:!!d.signalSwitched};
@@ -695,7 +716,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611191440';
+const APP_VER='202611191444';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
