@@ -254,5 +254,32 @@
         "mark": 185.2
       }
     ]
+  },
+  {
+    "date": "2026-11-19",
+    "basis": "收盘价",
+    "source": "新浪盘末最新价（quotes.json asOf 2026-11-19 15:02:45 Asia/Shanghai）",
+    "asOf": "2026-11-19 15:02:45 Asia/Shanghai",
+    "im": 5938.0,
+    "cumPnL": -56820,
+    "realized": -45140,
+    "legs": [
+      {
+        "side": "short",
+        "cp": "P",
+        "strike": 6500,
+        "qty": 1,
+        "entry": 197.6,
+        "mark": 572.8
+      },
+      {
+        "side": "long",
+        "cp": "P",
+        "strike": 6200,
+        "qty": 1,
+        "entry": 10.6,
+        "mark": 269.0
+      }
+    ]
   }
 ]
