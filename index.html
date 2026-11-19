@@ -436,7 +436,7 @@ function renderStrat(){
   setStatus();
   const chgCls=(idx.pct||0)>=0?'up':'down';
   document.getElementById('mkt').innerHTML=`
-    <div class="card"><div class="k">${idx.name||'中证1000'}</div><div class="v">${fmt(idx.last,2)}</div>
+    <div class="card"><div class="k">中证1000 指数（000852 现货）</div><div class="v">${fmt(idx.last,2)}</div>
       <div class="tiny chg ${chgCls}">${(idx.chg>=0?'+':'')+fmt(idx.chg,2)} · ${(idx.pct>=0?'+':'')+fmt(idx.pct,2)}%</div></div>
     <div class="card"><div class="k">ATM 隐含波动率 · MO${S.month}</div><div class="v">${(S.iv*100).toFixed(1)}%</div>
       <div class="tiny">ATM ${c.atm} · IM${S.month} ${fmt(im.last,1)}</div></div>`;
@@ -716,7 +716,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611191444';
+const APP_VER='202611191450';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
