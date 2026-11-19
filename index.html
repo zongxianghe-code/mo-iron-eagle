@@ -10,7 +10,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="apple-mobile-web-app-title" content="MO铁鹰"/>
 <title>MO 铁鹰</title>
-<link rel="manifest" href="manifest.json?v=202611191415"/>
+<link rel="manifest" href="manifest.json?v=202611191440"/>
 <style>
 :root{--bg:#0b1220;--card:#162033;--text:#eef3fb;--muted:#9aa8bf;--win:#3dd68c;--loss:#f07178;--warn:#ffb454;--line:#2a3a55;--accent:#59a5ff;--blue:#3b82f6;--head:#1a2740;--sug:#f07178}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -126,7 +126,58 @@ let mode='3', snap=JSON.parse(JSON.stringify(FALLBACK)), live=false;
 let basisData={idx:{},fut:{},time:'',live:false};
 const fee=16.5, mult=100;
 const STRIKE_OFFS=[-500,-400,-300,-200,-100,0,100,200,300,400,500,600,700,800];
-const EXP={'2611':'2026-11-20','2612':'2026-12-18','2703':'2027-03-19','2706':'2027-06-18'};
+const EXP={'2611':'2026-11-20','2612':'2026-12-18','2701':'2027-01-15','2702':'2027-02-19','2703':'2027-03-19','2706':'2027-06-18'};
+/** 到期日 = 第三个周五（EXP 表优先，缺省按规则推算，便于 2612→2701→… 自动滚动） */
+function expOf(code){
+  if(EXP[code]) return EXP[code];
+  const y=2000+(+code.slice(0,2)), m=+code.slice(2);
+  const first=new Date(Date.UTC(y,m-1,1)); const dow=first.getUTCDay(); // 0=Sun
+  const day=1+((5-dow+7)%7)+14;
+  return `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function nextMonthCode(code){ let y=+code.slice(0,2), m=+code.slice(2)+1; if(m>12){m=1;y++;} return String(y).padStart(2,'0')+String(m).padStart(2,'0'); }
+/** 剩余交易日：今天(15:00 前)起算到到期日，含到期日；仅排除周末，未排除法定假日（近似） */
+function tradingDaysLeft(code,t){
+  t=t||shanghaiNow();
+  const exp=expOf(code);
+  let d=Date.parse(t.date+'T00:00:00Z'); if(t.hour>=15) d+=86400000;
+  const e=Date.parse(exp+'T00:00:00Z'); let n=0;
+  for(; d<=e; d+=86400000){ const w=new Date(d).getUTCDay(); if(w!==0&&w!==6) n++; }
+  return n;
+}
+/** 近月 = 第一个尚未到期的月份；信号月 = 近月，若剩余交易日 ≤5 则次近月 */
+function pickSignalMonth(t){
+  t=t||shanghaiNow();
+  let near=t.date.slice(2,4)+t.date.slice(5,7);
+  for(let i=0;i<3;i++){
+    const e=expOf(near);
+    if(t.date<e || (t.date===e && t.hour<15)) break;
+    near=nextMonthCode(near);
+  }
+  const days=tradingDaysLeft(near,t);
+  return days<=5?{near,month:nextMonthCode(near),nearDays:days,switched:true}:{near,month:near,nearDays:days,switched:false};
+}
+/** 交易时段累计分钟（9:30–11:30、13:00–15:00，周末不计），用于“交易时间 N 小时前” */
+function tradMin(ts){
+  const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(ts); if(!m) return null;
+  const dn=Math.floor(Date.UTC(+m[1],+m[2]-1,+m[3])/86400000);
+  const wk=Math.floor((dn+3)/7), dow=(dn+3)%7; // 周一=0
+  const idx=wk*5+Math.min(dow,4);
+  const mins=(+m[4])*60+(+m[5]);
+  const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
+  return idx*240+cl(mins-570,0,120)+cl(mins-780,0,120);
+}
+/** IV 连续两小时下行：现在 < 1 小时前 < 2 小时前（交易时间，同一合约月）。 */
+function evalIvDown(hist,month){
+  const h=(hist||[]).filter(e=>e&&e.month===month&&e.iv>0).map(e=>({iv:e.iv,t:e.t,m:tradMin(e.t)})).filter(e=>e.m!=null).sort((a,b)=>a.m-b.m||(a.t<b.t?-1:1));
+  if(!h.length) return {state:'wait',have:0};
+  const cur=h[h.length-1], TOL=10;
+  const near=(target)=>{let best=null; for(const e of h){ if(e===cur) continue; const dd=Math.abs(e.m-target); if(dd<=TOL&&(!best||dd<best.dd)) best={e,dd}; } return best&&best.e;};
+  const p1=near(cur.m-60), p2=near(cur.m-120);
+  const have=cur.m-h[0].m;
+  if(!p1||!p2) return {state:'wait',have,cur};
+  return {state:(cur.iv<p1.iv&&p1.iv<p2.iv)?'ok':'bad',have,cur,p1,p2};
+}
 const GROUPS=[
   {key:'IC',label:'500 IC',idx:'s_sh000905',months:['2611','2612','2703','2706']},
   {key:'IM',label:'1000 IM',idx:'s_sh000852',months:['2611','2612','2703','2706']},
@@ -294,8 +345,14 @@ function parseFut(s){if(!s) return null; const p=s.split(',');
   return {open:+p[0]||0,high:+p[1]||0,low:+p[2]||0,last:+p[3]||0,settle:+p[14]||0,prev:+p[14]||0,bid:+p[16]||0,ask:+p[26]||0,time:((p[36]||'')+' '+(p[37]||'')).trim()};}
 function parseIdx(s){if(!s) return null; const p=s.split(','); return {name:p[0], last:+p[1]||0, chg:+p[2]||0, pct:+p[3]||0};}
 function getOpt(cp,k){return (snap.chain&&snap.chain[(cp==='P'?'P':'C')+k])||null;}
+/** 第一页信号用：次近月/信号月链与 IM；quotes.json 无 signal* 字段时回退到旧字段（近月） */
+function sigOf(){
+  if(snap.sig) return snap.sig;
+  return {month:'2611',exp:expOf('2611'),im:snap.im||{},atm:snap.atm,iv:snap.iv,chain:snap.chain||{},hist:[],near:'2611',nearDays:null,switched:false,fallback:true};
+}
+function sigOpt(cp,k){const S=sigOf(); return (S.chain&&S.chain[(cp==='P'?'P':'C')+k])||null;}
 function daysLeft(code){
-  const exp=EXP[code]; if(!exp) return 0;
+  const exp=expOf(code); if(!exp) return 0;
   const e=new Date(exp+'T15:00:00+08:00');
   const now=new Date();
   return Math.max(0, Math.ceil((e-now)/86400000));
@@ -321,25 +378,28 @@ function isSug(cp,k,c){
 }
 
 function compute(){
-  const atm=snap.atm;
-  const sp=getOpt('P',atm-100)||{bid:0,ask:0};
-  const lp=getOpt('P',atm-500)||{bid:0,ask:0};
-  const sc3=getOpt('C',atm+300)||{bid:0,ask:0};
-  const sc4=getOpt('C',atm+400)||{bid:0,ask:0};
-  const lc4=getOpt('C',atm+800)||{bid:0,ask:0};
+  const S=sigOf();
+  const atm=S.atm;
+  const sp=sigOpt('P',atm-100)||{bid:0,ask:0};
+  const lp=sigOpt('P',atm-500)||{bid:0,ask:0};
+  const sc3=sigOpt('C',atm+300)||{bid:0,ask:0};
+  const sc4=sigOpt('C',atm+400)||{bid:0,ask:0};
+  const lc4=sigOpt('C',atm+800)||{bid:0,ask:0};
   const credit3=(sp.bid||0)+(sc3.bid||0)-(lp.ask||0);
   const credit4=(sp.bid||0)+(sc4.bid||0)-(lp.ask||0)-(lc4.ask||0);
   const maxWin3=credit3*mult-3*fee, maxLossDown=(400-credit3)*mult+3*fee;
   const maxWin4=credit4*mult-4*fee, maxLoss4=(400-credit4)*mult+4*fee;
-  const ivOk=snap.iv>0.25;
-  const days=daysLeft('2611');
+  const ivOk=S.iv>0.25;
+  const days=tradingDaysLeft(S.month);
   const daysOk=days>5;
   const bookOk=true;
-  const ivDropChecked=false; // 未核实
-  const passed=(ivOk?1:0)+(daysOk?1:0)+(bookOk?1:0);
+  const ivd=evalIvDown(S.hist,S.month);
+  const ivDropChecked=ivd.state!=='wait';
+  const ivDownOk=ivd.state==='ok';
+  const passed=(ivOk?1:0)+(daysOk?1:0)+(bookOk?1:0)+(ivDownOk?1:0);
   const blocked=ivDropChecked?0:1;
   const waiting=0;
-  return {atm,sp,lp,sc3,sc4,lc4,credit3,credit4,maxWin3,maxLossDown,maxWin4,maxLoss4,ivOk,days,daysOk,bookOk,ivDropChecked,passed,blocked,waiting};
+  return {atm,sp,lp,sc3,sc4,lc4,credit3,credit4,maxWin3,maxLossDown,maxWin4,maxLoss4,ivOk,days,daysOk,bookOk,ivd,ivDropChecked,ivDownOk,passed,blocked,waiting,S};
 }
 
 function setStatus(extra){
@@ -348,17 +408,21 @@ function setStatus(extra){
   document.getElementById('status').textContent=`${src} · ${snap.asOf||sess.t.label} · ${sess.reason}${extra?(' · '+extra):''}`;
 }
 
+function switchNote(S){
+  if(!S.switched) return '';
+  return `<div class="note">近月 MO${S.near} 剩余 ≤5 个交易日${S.nearDays!=null?`（${S.nearDays}）`:''}，已切换至次近月 MO${S.month}</div>`;
+}
 function renderStrat(){
-  const c=compute(); const idx=snap.idx||{}; const im=snap.im||{};
+  const c=compute(); const S=c.S; const idx=snap.idx||{}; const im=S.im||snap.im||{};
   setStatus();
   const chgCls=(idx.pct||0)>=0?'up':'down';
   document.getElementById('mkt').innerHTML=`
     <div class="card"><div class="k">${idx.name||'中证1000'}</div><div class="v">${fmt(idx.last,2)}</div>
       <div class="tiny chg ${chgCls}">${(idx.chg>=0?'+':'')+fmt(idx.chg,2)} · ${(idx.pct>=0?'+':'')+fmt(idx.pct,2)}%</div></div>
-    <div class="card"><div class="k">ATM 隐含波动率</div><div class="v">${(snap.iv*100).toFixed(1)}%</div>
-      <div class="tiny">ATM ${c.atm} · IM ${fmt(im.last,1)}</div></div>`;
+    <div class="card"><div class="k">ATM 隐含波动率 · MO${S.month}</div><div class="v">${(S.iv*100).toFixed(1)}%</div>
+      <div class="tiny">ATM ${c.atm} · IM${S.month} ${fmt(im.last,1)}</div></div>`;
   document.getElementById('fut').innerHTML=`
-    <h2>期货 IM2611</h2>
+    <h2>期货 IM${S.month}</h2>
     <div class="row"><span>最新</span><strong>${fmt(im.last,1)}</strong></div>
     <div class="row"><span>买一 / 卖一</span><span>${fmt(im.bid,1)} / ${fmt(im.ask,1)}</span></div>
     <div class="row"><span>开 / 高 / 低</span><span>${fmt(im.open,1)} / ${fmt(im.high,1)} / ${fmt(im.low,1)}</span></div>
@@ -366,7 +430,7 @@ function renderStrat(){
     <div class="note">${im.time||snap.asOf||''}</div>`;
   let rows='';
   for(const off of STRIKE_OFFS){
-    const k=c.atm+off; const p=getOpt('P',k), call=getOpt('C',k);
+    const k=c.atm+off; const p=sigOpt('P',k), call=sigOpt('C',k);
     const cls=k===c.atm?'atm':'';
     const pCls=isSug('P',k,c)?'sug-p':'';
     const cCls=isSug('C',k,c)?'sug-c':'';
@@ -377,7 +441,8 @@ function renderStrat(){
       <td class="${cCls}">${call?fmt(call.bid,1):'—'}</td><td class="${cCls}">${call?fmt(call.last,1):'—'}</td><td class="${cCls}">${call?fmt(call.ask,1):'—'}</td></tr>`;
   }
   document.getElementById('chainCard').innerHTML=`
-    <h2>期权链 MO2611</h2>
+    <h2>期权链 MO${S.month}</h2>
+    ${switchNote(S)}
     <div class="tiny">围绕 ATM；<span class="sug">红色</span>为建议开仓腿（注明 买/卖 · Call/Put）。左 Put · 右 Call</div>
     <div class="scrollx"><table class="chain"><thead><tr><th>行权价</th><th>P买</th><th>P最新</th><th>P卖</th><th>C买</th><th>C最新</th><th>C卖</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   document.getElementById('trigMetrics').innerHTML=`
@@ -387,17 +452,28 @@ function renderStrat(){
   const ivPill=c.ivOk?'ok':'bad', ivDot=c.ivOk?'ok':'bad', ivTxt=c.ivOk?'已过':'未过';
   const dPill=c.daysOk?'ok':'bad', dDot=c.daysOk?'ok':'bad', dTxt=c.daysOk?'已过':'未过';
   let conclusion;
-  if(c.ivOk && c.daysOk && c.bookOk){
-    conclusion=`实时 4 条里过了 ${c.passed} 条（IV / 剩余日 / 盘口）。IV 连降尚未核实，接近可开仓，但不宜当作完整信号。`;
+  const core=c.ivOk && c.daysOk && c.bookOk;
+  if(core && c.ivDownOk){
+    conclusion=`实时 4 条全部满足（IV / 剩余日 / 盘口 / IV 连降），可视为开仓信号。`;
+  } else if(core && !c.ivDropChecked){
+    conclusion=`实时 4 条里过了 ${c.passed} 条（IV / 剩余日 / 盘口）。IV 连降数据积累中、尚未核实，接近可开仓，但不宜当作完整信号。`;
+  } else if(core){
+    conclusion=`实时 4 条里过了 ${c.passed} 条（IV / 剩余日 / 盘口）。IV 未连续两小时下行，暂不算开仓信号。`;
   } else {
     conclusion=`实时 4 条里过了 ${c.passed} 条，核心条件未齐，暂不算开仓信号。`;
   }
+  const ivd=c.ivd, pc=x=>(x.iv*100).toFixed(1)+'%';
+  let ivdDot,ivdPill,ivdTxt,ivdNote;
+  if(ivd.state==='ok'){ ivdDot='ok';ivdPill='ok';ivdTxt='已过'; ivdNote=`MO${S.month} ATM IV：${pc(ivd.p2)}(2h前) → ${pc(ivd.p1)}(1h前) → ${pc(ivd.cur)}(现在)`; }
+  else if(ivd.state==='bad'){ ivdDot='bad';ivdPill='bad';ivdTxt='未过'; ivdNote=`MO${S.month} ATM IV：${pc(ivd.p2)}(2h前) → ${pc(ivd.p1)}(1h前) → ${pc(ivd.cur)}(现在)，未连续下行`; }
+  else { ivdDot='bad';ivdPill='bad';ivdTxt='未核实'; ivdNote=`数据积累中：MO${S.month} 的 IV 记录约 ${Math.round(ivd.have||0)} 分钟交易时间，需 ≥120 分钟且含 1h/2h 前的点（交易时间 9:30–11:30、13:00–15:00，隔夜接续）`; }
   document.getElementById('trigCard').innerHTML=`
-    <div class="k">开仓条件（实时）</div>
-    <div class="trig"><div class="trig-head"><span class="dot ${ivDot}"></span><span>IV &gt; 25%</span><span class="pill ${ivPill}">${ivTxt}</span></div><div class="note">ATM IV ≈ ${(snap.iv*100).toFixed(1)}%</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot ${dDot}"></span><span>剩余交易日 &gt; 5</span><span class="pill ${dPill}">${dTxt}</span></div><div class="note">MO2611 → 2026-11-20 · 约 ${c.days} 天</div></div>
-    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>近月盘口正常</span><span class="pill ok">已过</span></div></div>
-    <div class="trig"><div class="trig-head"><span class="dot bad"></span><span>IV 连续两小时下行</span><span class="pill bad">未核实</span></div></div>
+    <div class="k">开仓条件（实时 · 信号月 MO${S.month}）</div>
+    ${S.switched?`<div class="note">${switchNote(S).replace(/<[^>]+>/g,'')}</div>`:''}
+    <div class="trig"><div class="trig-head"><span class="dot ${ivDot}"></span><span>IV &gt; 25%</span><span class="pill ${ivPill}">${ivTxt}</span></div><div class="note">MO${S.month} ATM IV ≈ ${(S.iv*100).toFixed(1)}%</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ${dDot}"></span><span>剩余交易日 &gt; 5</span><span class="pill ${dPill}">${dTxt}</span></div><div class="note">MO${S.month} → ${expOf(S.month)} · 剩余约 ${c.days} 个交易日（仅排除周末）</div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ok"></span><span>信号月盘口正常</span><span class="pill ok">已过</span></div></div>
+    <div class="trig"><div class="trig-head"><span class="dot ${ivdDot}"></span><span>IV 连续两小时下行</span><span class="pill ${ivdPill}">${ivdTxt}</span></div><div class="note">${ivdNote}</div></div>
     <div class="note"><strong>结论：</strong>${conclusion}</div>
     <div class="note">止盈封锁 / 叠加组数仅回测使用，实时跟进不计。</div>`;
   if(mode==='3'){
@@ -412,7 +488,7 @@ function renderStrat(){
   }
   const legs=suggestLegs(c);
   document.getElementById('legs').innerHTML=`
-    <div class="k">建议结构 · IM ${fmt(im.last,1)} · ATM ${c.atm} <span class="tag">红字=建议开仓</span></div>
+    <div class="k">建议结构 · MO${S.month} · IM${S.month} ${fmt(im.last,1)} · ATM ${c.atm} <span class="tag">红字=建议开仓</span></div>
     ${legs.map(L=>`<div class="row suggest"><span>${L.label} ${L.k} <span class="tiny">(${L.side==='short'?'short':'long'} ${L.cp==='C'?'Call':'Put'})</span></span><span>${fmt(L.px,1)}</span></div>`).join('')}
     <div class="row"><span>保守权利金</span><strong>${(mode==='3'?c.credit3:c.credit4).toFixed(1)} 点</strong></div>`;
 }
@@ -422,7 +498,9 @@ function renderBasis(){
   for(const g of GROUPS){
     const idx=basisData.idx[g.idx]; if(!idx) continue;
     html+=`<tr class="group"><td colspan="7">${g.label}　${fmt2(idx.last,2)}　<span class="${idx.pct>=0?'pos':'neg'}">${idx.pct>=0?'+':''}${fmt2(idx.pct,2)}%</span>　<span class="${idx.chg>=0?'pos':'neg'}">${idx.chg>=0?'+':''}${fmt2(idx.chg,2)}</span></td></tr>`;
-    g.months.forEach((m,i)=>{
+    const pref='nf_'+g.key;
+    const ms=Object.keys(basisData.fut).filter(k=>k.startsWith(pref)&&/^\d{4}$/.test(k.slice(pref.length))).map(k=>k.slice(pref.length)).sort();
+    (ms.length?ms:g.months).forEach((m,i)=>{
       const f=basisData.fut['nf_'+g.key+m]; if(!f) return;
       const d=daysLeft(m);
       const basis=idx.last-f.last;
@@ -437,7 +515,8 @@ function renderBasis(){
     });
   }
   document.getElementById('basisTb').innerHTML=html||'<tr><td colspan="7">暂无数据</td></tr>';
-  document.getElementById('basisFoot').textContent='到期按第三周五：2611=2026-11-20，2612=2026-12-18，2703=2027-03-19，2706=2027-06-18。';
+  { const ms=[...new Set(Object.keys(basisData.fut).map(k=>k.slice(-4)).filter(x=>/^\d{4}$/.test(x)))].sort();
+    document.getElementById('basisFoot').textContent='到期按第三周五：'+(ms.length?ms:['2611','2612','2703','2706']).map(m=>m+'='+expOf(m)).join('，')+'。'; }
   setStatus();
 }
 
@@ -602,6 +681,12 @@ async function pullQuotes(){
     iv:(d.iv!=null?d.iv:snap.iv),
     chain:d.chain||{}
   };
+  if(d.signalMonth && d.signalChain && d.signalIm){
+    snap.sig={month:d.signalMonth,exp:d.signalExp||expOf(d.signalMonth),im:d.signalIm,atm:d.signalAtm||snap.atm,iv:(d.signalIv!=null?d.signalIv:snap.iv),
+      chain:d.signalChain,hist:Array.isArray(d.ivHist)?d.ivHist:[],near:d.nearMonth||d.signalMonth,nearDays:(d.nearDaysLeft!=null?d.nearDaysLeft:null),switched:!!d.signalSwitched};
+  } else {
+    snap.sig=null; // 旧文件：回退到近月旧字段
+  }
   live=true;
   if(d.basis){
     basisData={idx:d.basis.idx||{},fut:d.basis.fut||{},time:d.basis.time||d.asOf||'',live:true};
@@ -610,7 +695,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611191415';
+const APP_VER='202611191440';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
