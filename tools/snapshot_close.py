@@ -116,17 +116,70 @@ def realized_total(page: dict) -> int:
     return sum(realized_of(t, mult) for t in page["CLOSED"])
 
 
+def pos_month_of(pos: dict) -> str | None:
+    m = re.search(r"(\d{4})", (pos or {}).get("code") or "")
+    return m.group(1) if m else None
+
+
+def chain_for_position(quotes: dict, pos: dict) -> dict:
+    """Marks must come from the position month, not a rolled near/signal chain."""
+    month = pos_month_of(pos)
+    if quotes.get("posChain") and (
+        not quotes.get("posMonth") or not month or quotes.get("posMonth") == month
+    ):
+        return quotes["posChain"]
+    if month and quotes.get("nearMonth") and quotes.get("nearMonth") != month:
+        return {}
+    return quotes.get("chain") or {}
+
+
+def im_last_for_position(quotes: dict, pos: dict) -> float | None:
+    month = pos_month_of(pos)
+    if quotes.get("posIm") and (
+        not quotes.get("posMonth") or not month or quotes.get("posMonth") == month
+    ):
+        last = (quotes.get("posIm") or {}).get("last")
+        if last:
+            return float(last)
+    if month:
+        fut = ((quotes.get("basis") or {}).get("fut") or {}).get(f"nf_IM{month}") or {}
+        if fut.get("last"):
+            return float(fut["last"])
+        if quotes.get("nearMonth") == month:
+            last = (quotes.get("im") or {}).get("last")
+            return float(last) if last else None
+        return None
+    last = (quotes.get("im") or {}).get("last")
+    return float(last) if last else None
+
+
+def intrinsic_of(leg: dict, F: float | None) -> float | None:
+    if F is None:
+        return None
+    if leg.get("cp") == "C":
+        return max(float(F) - float(leg["strike"]), 0.0)
+    return max(float(leg["strike"]) - float(F), 0.0)
+
+
 def build_snapshot(page: dict, quotes: dict, today: str) -> dict:
     pos = page["POSITION"]
     mult = pos.get("mult") or 100
-    chain = quotes.get("chain") or {}
+    chain = chain_for_position(quotes, pos)
+    F = im_last_for_position(quotes, pos)
     realized = realized_total(page)
     legs_out = []
     mtm = 0.0
     missing = []
+    used_intrinsic = False
     for leg in pos["legs"]:
         key = f"{leg['cp']}{leg['strike']}"
         mk = mark_of(chain.get(key))
+        src = "quote"
+        if mk is None:
+            mk = intrinsic_of(leg, F)
+            src = "intrinsic"
+            if mk is not None:
+                used_intrinsic = True
         row = {
             "side": leg["side"],
             "cp": leg["cp"],
@@ -138,6 +191,8 @@ def build_snapshot(page: dict, quotes: dict, today: str) -> dict:
             missing.append(key)
         else:
             row["mark"] = mk
+            if src == "intrinsic":
+                row["markBasis"] = "intrinsic"
             if leg["side"] == "short":
                 mtm += (leg["entry"] - mk) * leg["qty"] * mult
             else:
@@ -147,13 +202,18 @@ def build_snapshot(page: dict, quotes: dict, today: str) -> dict:
         raise RuntimeError("missing marks for legs: " + ", ".join(missing))
     mtm_i = int(round(mtm))
     as_of = quotes.get("asOf") or ""
-    im = (quotes.get("im") or {}).get("last")
+    month = pos_month_of(pos)
+    src = f"新浪盘末最新价（持仓月 MO{month}，quotes.json asOf {as_of}）" if month and as_of else (
+        f"新浪盘末最新价（quotes.json asOf {as_of}）" if as_of else "新浪盘末最新价"
+    )
+    if used_intrinsic:
+        src += f"；缺行情腿按 IM{month} {F} 内在价值补齐"
     return {
         "date": today,
         "basis": "收盘价",
-        "source": f"新浪盘末最新价（quotes.json asOf {as_of}）" if as_of else "新浪盘末最新价",
+        "source": src,
         "asOf": as_of,
-        "im": im,
+        "im": F,
         "cumPnL": int(realized + mtm_i),
         "realized": int(realized),
         "legs": legs_out,

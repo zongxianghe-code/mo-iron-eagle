@@ -206,12 +206,53 @@ def in_snapshot_window(now: datetime) -> bool:
     return now.weekday() < 5 and (15 * 60) <= _mins(now) < (15 * 60 + 20)
 
 
+def position_month() -> str | None:
+    """Month code of the open option position in index.html, or None if flat."""
+    try:
+        import snapshot_close
+        pos = snapshot_close.load_page_data()["POSITION"]
+        if not pos.get("legs"):
+            return None
+        m = re.search(r"(\d{4})", pos.get("code") or "")
+        return m.group(1) if m else None
+    except Exception as e:  # noqa: BLE001
+        print(f"position_month: {e}")
+        return None
+
+
+def fetch_pos_block() -> dict:
+    """IM + MO chain for the open position month (may differ from the rolled near month)."""
+    month = position_month()
+    if not month:
+        return {}
+    m1 = parse_map(fetch(",".join(BASE)))
+    pos_im = parse_fut(m1[f"nf_IM{month}"]) if m1.get(f"nf_IM{month}") else None
+    last = (pos_im and pos_im.get("last")) or 0
+    atm = int(round(last / 100.0) * 100) if last else 0
+    chain = fetch_chain(month, atm or 5700)
+    return {"posMonth": month, "posIm": pos_im, "posAtm": atm or None, "posChain": chain}
+
+
+def attach_pos_block(quotes: dict) -> bool:
+    """Fill pos* on an existing quotes.json. Returns True if it changed."""
+    month = position_month()
+    if not month:
+        return False
+    if quotes.get("posMonth") == month and quotes.get("posChain"):
+        return False
+    quotes.update(fetch_pos_block())
+    return True
+
+
 def maybe_snapshot_close(now: datetime) -> None:
     if not in_snapshot_window(now):
         return
-    # tools/ is on sys.path when this file is run as a script
-    import snapshot_close
-    snapshot_close.upsert_today(now=now, force=True)
+    try:
+        import snapshot_close
+        snapshot_close.upsert_today(now=now, force=True)
+    except Exception as e:  # noqa: BLE001
+        # Never block the quotes.json write; the next 15:00–15:20 run can retry.
+        print(f"snapshot_close failed: {e}", file=__import__("sys").stderr)
 
 
 # ---------------------------------------------------------------- realized (historical) vol of 中证1000
@@ -283,6 +324,13 @@ def main() -> None:
     now = datetime.now(TZ)
     if in_late_snapshot_window(now):
         print(f"skip quotes write after 15:05 (now={now.strftime('%Y-%m-%d %H:%M:%S')} Asia/Shanghai); snapshot only")
+        try:
+            q = json.loads(OUT.read_text(encoding="utf-8"))
+            if attach_pos_block(q):
+                OUT.write_text(json.dumps(q, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                print(f"patched pos* into quotes.json posMonth={q.get('posMonth')} legs={len(q.get('posChain') or {})}")
+        except Exception as e:  # noqa: BLE001
+            print(f"pos* patch skipped ({e})")
         maybe_snapshot_close(now)
         return
     m1 = parse_map(fetch(",".join(BASE)))
@@ -340,6 +388,7 @@ def main() -> None:
         "signalChain": s_chain,
         "ivHist": iv_hist,
         "hv": hv,
+        **fetch_pos_block(),
         "basis": {
             "idx": {
                 "s_sh000852": parse_idx(m1["s_sh000852"]) if m1.get("s_sh000852") else None,

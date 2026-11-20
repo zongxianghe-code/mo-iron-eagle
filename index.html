@@ -345,7 +345,17 @@ function parseOpt(s){if(!s) return null; const p=s.split(','); return {bvol:+p[0
 function parseFut(s){if(!s) return null; const p=s.split(',');
   return {open:+p[0]||0,high:+p[1]||0,low:+p[2]||0,last:+p[3]||0,settle:+p[14]||0,prev:+p[14]||0,bid:+p[16]||0,ask:+p[26]||0,time:((p[36]||'')+' '+(p[37]||'')).trim()};}
 function parseIdx(s){if(!s) return null; const p=s.split(','); return {name:p[0], last:+p[1]||0, chg:+p[2]||0, pct:+p[3]||0};}
-function getOpt(cp,k){return (snap.chain&&snap.chain[(cp==='P'?'P':'C')+k])||null;}
+function posMonthCode(){return (POSITION.code||'').replace(/^MO/,'');}
+function posImOf(){return (snap.posIm&&snap.posIm.last!=null)?snap.posIm:(snap.im||{});}
+function getOpt(cp,k){
+  const key=(cp==='P'?'P':'C')+k;
+  if(snap.posChain&&snap.posChain[key]) return snap.posChain[key];
+  const pm=posMonthCode();
+  // 近月已换月后，不能用次月链盯持仓月的行权价
+  if(pm && snap.posMonth && snap.posMonth!==pm) return null;
+  if(pm && snap.near && snap.near!==pm) return null;
+  return (snap.chain&&snap.chain[key])||null;
+}
 /** 第一页信号用：次近月/信号月链与 IM；quotes.json 无 signal* 字段时回退到旧字段（近月） */
 function sigOf(){
   if(snap.sig) return snap.sig;
@@ -564,7 +574,7 @@ function payoffAt(S){
   return pts*POSITION.mult + realizedTotal();
 }
 function renderPos(){
-  const im=snap.im||{};
+  const im=posImOf();
   const credit=netCreditPts();
   const openQty=POSITION.legs.reduce((a,L)=>a+L.qty,0);
   const closedQty=CLOSED.filter(T=>!T.hedge).reduce((a,T)=>a+T.qty,0); // IM 期货对冲不计入期权手续费估算
@@ -629,7 +639,7 @@ function renderPos(){
     <div class="row"><span>昨日收盘累计收益${prevHint}</span><strong class="${prevCls}">${prevTxt}</strong></div>
     <div class="row"><span>较昨收变动</span><strong class="${chgCls}">${chgTxt}</strong></div>
     <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
-    <div class="row"><span>IM 最新</span><strong>${fmt(im.last,1)}</strong></div>
+    <div class="row"><span>IM${posMonthCode()} 最新</span><strong>${fmt(im.last,1)}</strong></div>
     <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（按该日快照口径，未扣费）。Put 侧为 P6500 空 / P6200 多的价差，下行最大亏损封顶于价差宽度（扣开仓净收）。Call 侧已于 11-17 全部平仓，上行无敞口。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
@@ -642,7 +652,7 @@ function renderPos(){
     <div class="row"><span>累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
     <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>`;
   document.getElementById('posChart').innerHTML=buildPayoffSvg(im.last||6500);
-  document.getElementById('posChartNote').textContent='横轴标的（估）5600–7600；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。竖线=当前 IM 最新。Put 侧为 P6500/P6200 价差（下行封顶）；Call 侧已平。';
+  document.getElementById('posChartNote').textContent=`横轴标的（估）5600–7600；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。竖线=持仓合约 IM${posMonthCode()} 最新。Put 侧为 P6500/P6200 价差（下行封顶）；Call 侧已平。`;
 }
 function buildPayoffSvg(spot){
   const x0=5600, x1=7600, step=20;
@@ -699,7 +709,11 @@ async function pullQuotes(){
     im:d.im||snap.im,
     atm:d.atm||snap.atm,
     iv:(d.iv!=null?d.iv:snap.iv),
-    chain:d.chain||{}
+    chain:d.chain||{},
+    near:d.nearMonth||null,
+    posMonth:d.posMonth||null,
+    posIm:d.posIm||null,
+    posChain:d.posChain||null
   };
   snap.hv=d.hv||null;
   if(d.signalMonth && d.signalChain && d.signalIm){
@@ -716,7 +730,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611191500';
+const APP_VER='202611201510';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
