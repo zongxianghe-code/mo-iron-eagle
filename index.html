@@ -200,6 +200,7 @@ const CLOSED=[
   {date:'2026-11-17', time:'', code:'MO2611-C-6800', side:'short', cp:'C', strike:6800, qty:1, entry:89.5, exit:8.0, note:'11-17平仓，时间未记'},
   {date:'2026-11-20', time:'', code:'MO2611-P-6500', side:'short', cp:'P', strike:6500, qty:1, entry:197.6, exit:783.0, note:'到期日平仓，时间未记'},
   {date:'2026-11-20', time:'', code:'MO2611-P-6200', side:'long',  cp:'P', strike:6200, qty:1, entry:10.6, exit:463.4, note:'到期日平仓，时间未记'},
+  {date:'2026-11-20', time:'', code:'MO2611-C-5700', side:'long',  cp:'C', strike:5700, qty:1, entry:88.0, exit:29.2, note:'开仓价88，到期日平仓，时间未记'},
 ];
 /** 每个交易日收盘追加一条。cumPnL=当日已实现 + 当时持仓按 basis 盯市。页面取「今天之前最近一条」作为昨日收盘。 */
 const DAILY_SNAPSHOTS=[
@@ -729,7 +730,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611230950';
+const APP_VER='202611230955';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
