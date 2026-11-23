@@ -284,29 +284,12 @@
   },
   {
     "date": "2026-11-20",
-    "basis": "收盘价",
-    "source": "新浪盘末最新价（持仓月 MO2611，quotes.json asOf 2026-11-20 15:04:17 Asia/Shanghai）",
+    "basis": "实际平仓价",
+    "source": "11-20 到期平仓：P6500 空 197.6→783.0，P6200 多 10.6→463.4（C5700 不在原持仓记录，未计入）",
     "asOf": "2026-11-20 15:04:17 Asia/Shanghai",
     "im": 5719.2,
-    "cumPnL": -56040,
-    "realized": -45140,
-    "legs": [
-      {
-        "side": "short",
-        "cp": "P",
-        "strike": 6500,
-        "qty": 1,
-        "entry": 197.6,
-        "mark": 783.0
-      },
-      {
-        "side": "long",
-        "cp": "P",
-        "strike": 6200,
-        "qty": 1,
-        "entry": 10.6,
-        "mark": 487.0
-      }
-    ]
+    "cumPnL": -58400,
+    "realized": -58400,
+    "legs": []
   }
 ]

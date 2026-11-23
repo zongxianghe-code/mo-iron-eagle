@@ -186,10 +186,7 @@ const GROUPS=[
 /** 现有持仓（剩余腿成交价，勿改） MO2611 */
 const POSITION={
   code:'MO2611', exp:'2026-11-20', mult:100, feePerLeg:16.5,
-  legs:[
-    {side:'short', cp:'P', strike:6500, qty:1, entry:197.6},
-    {side:'long',  cp:'P', strike:6200, qty:1, entry:10.6},
-  ]
+  legs:[]
 };
 /** 已平仓记录（开仓以来累计；后续平仓只追加，不改历史） 时间=北京时间 */
 const CLOSED=[
@@ -201,6 +198,8 @@ const CLOSED=[
   {date:'2026-11-19', time:'11:17:29', code:'MO2611-P-6600', side:'short', cp:'P', strike:6600, qty:1, entry:80.0, exit:685.2},
   {date:'2026-11-19', time:'11:19:03', code:'IM2611', side:'long', hedge:true, label:'IM2611 期货对冲 一买一卖（11:17:50 买开 5922 · 11:19:03 卖平 5926）', qty:1, entry:5922, exit:5926, mult:200},
   {date:'2026-11-17', time:'', code:'MO2611-C-6800', side:'short', cp:'C', strike:6800, qty:1, entry:89.5, exit:8.0, note:'11-17平仓，时间未记'},
+  {date:'2026-11-20', time:'', code:'MO2611-P-6500', side:'short', cp:'P', strike:6500, qty:1, entry:197.6, exit:783.0, note:'到期日平仓，时间未记'},
+  {date:'2026-11-20', time:'', code:'MO2611-P-6200', side:'long',  cp:'P', strike:6200, qty:1, entry:10.6, exit:463.4, note:'到期日平仓，时间未记'},
 ];
 /** 每个交易日收盘追加一条。cumPnL=当日已实现 + 当时持仓按 basis 盯市。页面取「今天之前最近一条」作为昨日收盘。 */
 const DAILY_SNAPSHOTS=[
@@ -640,7 +639,7 @@ function renderPos(){
     <div class="row"><span>较昨收变动</span><strong class="${chgCls}">${chgTxt}</strong></div>
     <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
     <div class="row"><span>IM${posMonthCode()} 最新</span><strong>${fmt(im.last,1)}</strong></div>
-    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（按该日快照口径，未扣费）。Put 侧为 P6500 空 / P6200 多的价差，下行最大亏损封顶于价差宽度（扣开仓净收）。Call 侧已于 11-17 全部平仓，上行无敞口。到期曲线示例：5600 约 ${yen(payoffAt(5600))}，7600 约 ${yen(payoffAt(7600))}。保证金未实时估算。</div>
+    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（按该日快照口径，未扣费）。MO2611 剩余腿已于 11-20 全部平仓，当前无期权持仓。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
     <div class="k">剩余分腿盯市（优先最新价，否则买卖中价；最新价×手数计入净权利金）</div>
@@ -652,7 +651,7 @@ function renderPos(){
     <div class="row"><span>累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
     <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>`;
   document.getElementById('posChart').innerHTML=buildPayoffSvg(im.last||6500);
-  document.getElementById('posChartNote').textContent=`横轴标的（估）5600–7600；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。竖线=持仓合约 IM${posMonthCode()} 最新。Put 侧为 P6500/P6200 价差（下行封顶）；Call 侧已平。`;
+  document.getElementById('posChartNote').textContent=`横轴标的（估）5600–7600；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。当前无剩余腿。竖线=参考 IM 最新。`;
 }
 function buildPayoffSvg(spot){
   const x0=5600, x1=7600, step=20;
@@ -730,7 +729,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611201510';
+const APP_VER='202611230950';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
