@@ -156,8 +156,18 @@ def pick_signal_month(now: datetime) -> tuple[str, str, int, bool]:
     return near, near, days, False
 
 
-def fetch_chain(code: str, atm: int) -> dict:
+def fetch_chain(code: str, atm: int, extra_strikes: list[int] | None = None) -> dict:
+    # ATM window plus any open-position strikes so far wings (e.g. P5200) stay in quotes
+    # after a large spot move; otherwise the page hides 较昨收 when a leg mark is missing.
     strikes = list(range(atm - 600, atm + 901, 100))
+    for k in extra_strikes or []:
+        try:
+            k = int(k)
+        except (TypeError, ValueError):
+            continue
+        if k > 0 and k not in strikes:
+            strikes.append(k)
+    strikes = sorted(set(strikes))
     opts = [f"P_OP_mo{code}P{k}" for k in strikes] + [f"P_OP_mo{code}C{k}" for k in strikes]
     chain: dict = {}
     for i in range(0, len(opts), 40):
@@ -220,6 +230,30 @@ def position_month() -> str | None:
         return None
 
 
+def position_strikes_for(month: str | None) -> list[int]:
+    """Open-position strikes when `month` is the held contract month."""
+    if not month:
+        return []
+    try:
+        import snapshot_close
+        pos = snapshot_close.load_page_data()["POSITION"]
+        held = position_month()
+        if not held or held != month or not pos.get("legs"):
+            return []
+        out = []
+        for leg in pos["legs"]:
+            try:
+                k = int(leg.get("strike") or 0)
+            except (TypeError, ValueError):
+                continue
+            if k > 0:
+                out.append(k)
+        return sorted(set(out))
+    except Exception as e:  # noqa: BLE001
+        print(f"position_strikes_for: {e}")
+        return []
+
+
 def fetch_pos_block() -> dict:
     """IM + MO chain for the open position month (may differ from the rolled near month)."""
     month = position_month()
@@ -229,7 +263,7 @@ def fetch_pos_block() -> dict:
     pos_im = parse_fut(m1[f"nf_IM{month}"]) if m1.get(f"nf_IM{month}") else None
     last = (pos_im and pos_im.get("last")) or 0
     atm = int(round(last / 100.0) * 100) if last else 0
-    chain = fetch_chain(month, atm or 5700)
+    chain = fetch_chain(month, atm or 5700, extra_strikes=position_strikes_for(month))
     return {"posMonth": month, "posIm": pos_im, "posAtm": atm or None, "posChain": chain}
 
 
@@ -342,7 +376,7 @@ def main() -> None:
     idx = parse_idx(m1["s_sh000852"]) if m1.get("s_sh000852") else None
     last = (im and im["last"]) or (idx and idx["last"]) or 6500.0
     atm = int(round(last / 100.0) * 100)
-    chain = fetch_chain(near, atm)
+    chain = fetch_chain(near, atm, extra_strikes=position_strikes_for(near))
     iv = atm_iv(chain, atm, last, exp_of(near), now0)
     # signal block: next month when near month has <= SWITCH_DAYS trading days left
     if sig == near:
@@ -352,7 +386,7 @@ def main() -> None:
         if s_im is None:
             s_im = parse_fut(parse_map(fetch(f"nf_IM{sig}"))[f"nf_IM{sig}"])
         s_atm = int(round(s_im["last"] / 100.0) * 100)
-        s_chain = fetch_chain(sig, s_atm)
+        s_chain = fetch_chain(sig, s_atm, extra_strikes=position_strikes_for(sig))
     s_iv = atm_iv(s_chain, s_atm, s_im["last"], exp_of(sig), now0) if s_im else None
     iv_hist = load_iv_hist(now0)
     if s_iv:

@@ -613,7 +613,7 @@ function renderPos(){
   const chgCls=change==null?'':(change>=0?'win':'loss');
   const prevTxt=prev==null?'—':yen(prev.cumPnL);
   const prevHint=prev?`（${prev.date} ${prev.basis||'收盘'}）`:'';
-  const chgTxt=change==null?'—':yenSigned(change);
+  const chgTxt=change==null?(missing.length?('—（缺行情 '+missing.join(', ')+'）'):'—'):yenSigned(change);
   const captured=liveOk && credit!==0 ? (credit-liveCredit)/credit : null;
   const liveCls=liveOk?(liveCredit>=0?'win':'loss'):'';
   const capCls=captured==null?'':(captured>=0?'win':'loss');
@@ -735,7 +735,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611231330';
+const APP_VER='202611240944';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
@@ -767,6 +767,7 @@ function seedFallbackChain(){
 }
 seedFallbackChain();
 renderStrat(); renderBasis(); renderPos();
+pullDailySnapshots().then(()=>{ renderPos(); });
 smartRefresh(false);
 if(timer) clearInterval(timer);
 timer=setInterval(()=>{ const s=sessionMode(); if(s.mode!=='off') smartRefresh(false); else setStatus(); }, 300000);
