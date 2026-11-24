@@ -186,9 +186,12 @@ const GROUPS=[
 /** 现有持仓（剩余腿成交价，勿改） MO2612 */
 const POSITION={
   code:'MO2612', exp:'2026-12-18', mult:100, feePerLeg:16.5,
+  // 开仓时间均为北京时间。11-24 卖开 P5900、买开 P5500 为新增腿，不替换 11-23 四腿。
   legs:[
     {side:'long',  cp:'P', strike:5200, qty:1, entry:99.8, date:'2026-11-23', time:'13:20:22'},
+    {side:'long',  cp:'P', strike:5500, qty:1, entry:90.6, date:'2026-11-24', time:'10:17:11'},
     {side:'short', cp:'P', strike:5600, qty:1, entry:206.0, date:'2026-11-23', time:'13:26:27'},
+    {side:'short', cp:'P', strike:5900, qty:1, entry:235.0, date:'2026-11-24', time:'10:17:01'},
     {side:'short', cp:'C', strike:6000, qty:1, entry:139.6, date:'2026-11-23', time:'13:21:15'},
     {side:'long',  cp:'C', strike:6400, qty:1, entry:54.8, date:'2026-11-23', time:'13:27:14'},
   ]
@@ -645,7 +648,7 @@ function renderPos(){
     <div class="row"><span>较昨收变动</span><strong class="${chgCls}">${chgTxt}</strong></div>
     <div class="row"><span>手续费（估）</span><span>≈ ${yen(feesEst)}（${POSITION.feePerLeg}/张 · 剩余开仓 ${openQty} + 已平开仓及平仓 ${closedQty*2}）</span></div>
     <div class="row"><span>IM${posMonthCode()} 最新</span><strong>${fmt(im.last,1)}</strong></div>
-    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值，还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（按该日快照口径，未扣费）。MO2612 四腿铁鹰：买 P5200 / 卖 P5600 / 卖 C6000 / 买 C6400，两侧价差均为 400 点，下行/上行最大亏损封顶于价差宽度（扣开仓净收）。到期曲线示例：5200 约 ${yen(payoffAt(5200))}，5800 约 ${yen(payoffAt(5800))}，6400 约 ${yen(payoffAt(6400))}。保证金未实时估算。</div>
+    <div class="note">现价全部平掉约需支付 ${liveOk?yen(liveCredit*POSITION.mult):'—'}；若到期全虚值（约在 5900–6000），还能再留这部分，剩余腿总盈亏回到开仓净收 ${yen(credit*POSITION.mult)}，计入已实现后约 ${yen(credit*POSITION.mult+realized)}（未扣费）。较昨收 = 当前合计 − 昨日收盘累计（按该日快照口径，未扣费；11-24 新增腿从开仓计入当日变动，不改昨收基准）。MO2612 现为六腿：11-23 铁鹰买 P5200 / 卖 P5600 / 卖 C6000 / 买 C6400（净收 191 点），11-24 再卖 P5900 / 买 P5500（净收 144.4 点），合计开仓净收 335.4 点。Put 侧两段各 400 点价差（P5900/P5500 与 P5600/P5200），下行到期最大亏损约为两段宽度之和减去开仓净收；Call 侧仍为 C6000/C6400 一段 400 点价差。到期曲线示例：5200 约 ${yen(payoffAt(5200))}，5500 约 ${yen(payoffAt(5500))}，5950 约 ${yen(payoffAt(5950))}，6400 约 ${yen(payoffAt(6400))}。保证金未实时估算。</div>
     ${missing.length?`<div class="note warn">缺行情行权价：${missing.join(', ')}（该腿 MTM 暂缺）</div>`:''}`;
   document.getElementById('posLegs').innerHTML=`
     <div class="k">剩余分腿盯市（优先最新价，否则买卖中价；最新价×手数计入净权利金）</div>
@@ -657,7 +660,7 @@ function renderPos(){
     <div class="row"><span>累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
     <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>`;
   document.getElementById('posChart').innerHTML=buildPayoffSvg(im.last||6500);
-  document.getElementById('posChartNote').textContent=`横轴标的（估）5000–7000；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。竖线=参考 IM 最新。Put 侧 P5600 空 / P5200 多，Call 侧 C6000 空 / C6400 多，两侧各封顶 400 点价差。`;
+  document.getElementById('posChartNote').textContent=`横轴标的（估）5000–7000；纵轴到期盈亏（¥，含剩余腿开仓权利金 + 已实现平仓盈亏，未扣手续费）。竖线=参考 IM 最新。Put 侧两段价差：P5900 空 / P5500 多，以及 P5600 空 / P5200 多；Call 侧 C6000 空 / C6400 多。下行两段合计 800 点封顶，上行仍 400 点封顶（均扣开仓净收）。`;
 }
 function buildPayoffSvg(spot){
   const x0=5000, x1=7000, step=20;
@@ -673,9 +676,10 @@ function buildPayoffSvg(spot){
   pts.forEach((p,i)=>{ d+=(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)+' '; });
   const zeroY=Y(0);
   const sx=Math.max(x0,Math.min(x1,spot));
-  // ticks
+  // ticks: range ends plus every open-position strike, so added wings stay visible
   let xt='', yt='';
-  for(let S=5200;S<=6800;S+=400){
+  const tickStrikes=[...new Set([x0, x1, ...POSITION.legs.map(L=>L.strike)])].filter(S=>S>=x0&&S<=x1).sort((a,b)=>a-b);
+  for(const S of tickStrikes){
     xt+=`<line x1="${X(S)}" y1="${padT}" x2="${X(S)}" y2="${padT+ih}" stroke="#2a3a55" stroke-width="1"/>`;
     xt+=`<text x="${X(S)}" y="${H-10}" fill="#9aa8bf" font-size="11" text-anchor="middle">${S}</text>`;
   }
@@ -735,7 +739,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611240944';
+const APP_VER='202611241024';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
