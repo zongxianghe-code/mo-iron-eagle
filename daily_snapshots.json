@@ -334,5 +334,64 @@
         "mark": 48.0
       }
     ]
+  },
+  {
+    "date": "2026-11-24",
+    "basis": "收盘价",
+    "source": "新浪盘末最新价（持仓月 MO2612，quotes.json asOf 2026-11-24 15:01:18 Asia/Shanghai）",
+    "asOf": "2026-11-24 15:01:18 Asia/Shanghai",
+    "im": 5720.0,
+    "cumPnL": -66420,
+    "realized": -64280,
+    "legs": [
+      {
+        "side": "long",
+        "cp": "P",
+        "strike": 5200,
+        "qty": 1,
+        "entry": 99.8,
+        "mark": 63.2
+      },
+      {
+        "side": "long",
+        "cp": "P",
+        "strike": 5500,
+        "qty": 1,
+        "entry": 90.6,
+        "mark": 132.0
+      },
+      {
+        "side": "short",
+        "cp": "P",
+        "strike": 5600,
+        "qty": 1,
+        "entry": 206,
+        "mark": 166.8
+      },
+      {
+        "side": "short",
+        "cp": "P",
+        "strike": 5900,
+        "qty": 1,
+        "entry": 235,
+        "mark": 307.8
+      },
+      {
+        "side": "short",
+        "cp": "C",
+        "strike": 6000,
+        "qty": 1,
+        "entry": 139.6,
+        "mark": 107.0
+      },
+      {
+        "side": "long",
+        "cp": "C",
+        "strike": 6400,
+        "qty": 1,
+        "entry": 54.8,
+        "mark": 29.6
+      }
+    ]
   }
 ]
