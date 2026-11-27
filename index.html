@@ -571,6 +571,13 @@ function netCreditPts(){
   }
   return c;
 }
+function codeMonth(code){
+  const m=String(code||'').match(/^(?:MO|IM)(\d{4})/);
+  return m?m[1]:'';
+}
+function realizedForMonth(month){
+  return CLOSED.filter(T=>codeMonth(T.code)===month).reduce((a,T)=>a+realizedOf(T),0);
+}
 function payoffAt(S){
   // 剩余腿到期盈亏（含其开仓权利金）+ 已实现平仓盈亏
   let pts=0;
@@ -588,6 +595,7 @@ function renderPos(){
   const closedQty=CLOSED.filter(T=>!T.hedge).reduce((a,T)=>a+T.qty,0); // IM 期货对冲不计入期权手续费估算
   const feesEst=(openQty+closedQty*2)*POSITION.feePerLeg; // 剩余腿仅开仓；已平腿开仓+平仓
   const realized=realizedTotal();
+  const realizedMonth=realizedForMonth(posMonthCode());
   let totalMtm=0, missing=[], liveCredit=0;
   const rows=[];
   for(const L of POSITION.legs){
@@ -643,6 +651,7 @@ function renderPos(){
     <div class="row"><span>已兑现比例</span><strong class="${capCls}">${capTxt}</strong></div>
     <div class="row"><span>开仓以来累计已实现</span><strong class="${realized>=0?'win':'loss'}">${yen(realized)}</strong></div>
     <div class="row"><span>剩余腿浮动盈亏</span><strong class="${totalMtm>=0?'win':'loss'}">${yen(totalMtm)}</strong></div>
+    <div class="row"><span>本期 ${POSITION.code} 盈亏（已实现+浮动，不含往期）</span><strong class="${(realizedMonth+totalMtm)>=0?'win':'loss'}">${(liveOk||!POSITION.legs.length)?yen(realizedMonth+totalMtm):'—'}</strong></div>
     <div class="row"><span>合计（已实现+浮动）</span><strong class="${total>=0?'win':'loss'}">${yen(total)}</strong></div>
     <div class="row"><span>昨日收盘累计收益${prevHint}</span><strong class="${prevCls}">${prevTxt}</strong></div>
     <div class="row"><span>较昨收变动</span><strong class="${chgCls}">${chgTxt}</strong></div>
@@ -739,7 +748,7 @@ async function pullQuotes(){
   renderStrat(); renderBasis(); renderPos();
 }
 
-const APP_VER='202611241024';
+const APP_VER='202611271340';
 
 async function smartRefresh(forceFull){
   const sess=sessionMode();
